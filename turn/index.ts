@@ -28,6 +28,10 @@ export function summarizeToolInput(
 			return truncate(String(input.url ?? ""));
 		case "Agent":
 			return truncate(String(input.description ?? input.prompt ?? ""), 100);
+		case "Skill":
+			return String(input.skill ?? "");
+		case "Monitor":
+			return truncate(String(input.command ?? input.description ?? ""));
 		case "LSP":
 			return `${input.operation} ${input.filePath}:${input.line}`;
 		case "TaskCreate":
