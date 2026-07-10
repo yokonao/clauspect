@@ -1,4 +1,4 @@
-import type { AnyEntry, AssistantEntry, UserEntry } from "../session/jsonl";
+import type { AnyEntry, AssistantEntry, UserEntry } from "./model/jsonl";
 
 // --- Tool input summarizer ---
 

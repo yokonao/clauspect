@@ -3,7 +3,7 @@ import {
 	displayToolName,
 	formatTimestamp,
 	type TurnGroup,
-} from "../../turn";
+} from "../../domain/turn";
 import { renderMarkdown } from "./markdown";
 
 // --- HTML renderer ---

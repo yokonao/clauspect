@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import type { AnyEntry } from "../session/jsonl";
-import { aggregateUsage, cacheHitRate, totalToolCalls } from ".";
+import type { AnyEntry } from "./model/jsonl";
+import { aggregateUsage, cacheHitRate, totalToolCalls } from "./usage";
 
 function assistant(
 	usage: Record<string, unknown> | undefined,

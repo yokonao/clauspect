@@ -1,16 +1,16 @@
-import { searchSessions } from "../search";
+import { scanEntries } from "../domain/search";
+import { buildTurnGroups } from "../domain/turn";
+import { aggregateUsage } from "../domain/usage";
 import {
 	consoleLogger,
 	type Session,
 	SessionStore,
 	type SubagentMeta,
 } from "../store";
-import { buildTurnGroups } from "../turn";
-import { aggregateUsage } from "../usage";
 import { detailPage } from "./views/detail";
 import { listPage } from "./views/list";
 import { rawPage } from "./views/raw";
-import { searchPage } from "./views/search";
+import { type SessionSearchResult, searchPage } from "./views/search";
 import { renderPage, Shell } from "./views/shell";
 import { subagentPage } from "./views/subagent";
 
@@ -44,6 +44,33 @@ function agentMap(agents: SubagentMeta[]): Map<string, string> {
 	return new Map(agents.map((a) => [a.toolUseId, a.agentId]));
 }
 
+const MAX_HITS_PER_SESSION = 5;
+
+// Parse every session and scan it for `query`. listSessions is newest-first and
+// Promise.all preserves order, so results stay newest-first. Sessions that fail
+// to parse are skipped rather than aborting the whole search.
+async function runSearch(query: string): Promise<SessionSearchResult[]> {
+	const needle = query.toLowerCase();
+	const sessions = await store.listSessions();
+	const results = await Promise.all(
+		sessions.map(async (session): Promise<SessionSearchResult | null> => {
+			let entries: Awaited<ReturnType<typeof store.parseSession>>["entries"];
+			try {
+				entries = (await store.parseSession(session.jsonl)).entries;
+			} catch {
+				return null;
+			}
+			const { hits, totalHits } = scanEntries(
+				entries,
+				needle,
+				MAX_HITS_PER_SESSION,
+			);
+			return totalHits > 0 ? { session, hits, totalHits } : null;
+		}),
+	);
+	return results.filter((r): r is SessionSearchResult => r !== null);
+}
+
 export const routes = {
 	"/": async (req: Request) => {
 		const project = new URL(req.url).searchParams.get("project");
@@ -54,7 +81,7 @@ export const routes = {
 
 	"/search": async (req: Request) => {
 		const q = (new URL(req.url).searchParams.get("q") ?? "").trim();
-		const results = q ? await searchSessions(store, q) : [];
+		const results = q ? await runSearch(q) : [];
 		const totalHits = results.reduce((n, r) => n + r.totalHits, 0);
 		return new Response(searchPage({ query: q, results, totalHits }), html);
 	},

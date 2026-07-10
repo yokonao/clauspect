@@ -1,6 +1,13 @@
-import type { HitKind, SearchHit, SessionSearchResult } from "../../search";
+import type { HitKind, SearchHit } from "../../domain/search";
+import type { Session } from "../../store";
 import { shortName } from "./format";
 import { renderPage, Shell } from "./shell";
+
+export interface SessionSearchResult {
+	session: Session;
+	hits: SearchHit[];
+	totalHits: number;
+}
 
 export interface SearchData {
 	query: string;

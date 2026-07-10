@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import type { AnyEntry } from "../session/jsonl";
-import { buildTurnGroups, displayToolName, summarizeToolInput } from "./index";
+import type { AnyEntry } from "./model/jsonl";
+import { buildTurnGroups, displayToolName, summarizeToolInput } from "./turn";
 
 test("MCP tool name renders as server: tool, not the raw mcp__ form", () => {
 	expect(displayToolName("mcp__jira__create_issue")).toBe("jira: create_issue");

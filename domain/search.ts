@@ -1,6 +1,5 @@
-import type { AnyEntry } from "../session/jsonl";
-import type { Session, SessionStore } from "../store";
-import { summarizeToolInput } from "../turn";
+import type { AnyEntry } from "./model/jsonl";
+import { summarizeToolInput } from "./turn";
 
 export type HitKind = "user" | "assistant" | "thinking" | "tool";
 
@@ -12,17 +11,6 @@ export interface SearchHit {
 	before: string;
 	match: string;
 	after: string;
-}
-
-export interface SessionSearchResult {
-	session: Session;
-	hits: SearchHit[];
-	totalHits: number;
-}
-
-export interface SearchOptions {
-	maxSessions?: number;
-	maxHitsPerSession?: number;
 }
 
 interface Segment {
@@ -94,46 +82,24 @@ function makeHit(seg: Segment, idx: number, len: number): SearchHit {
 	};
 }
 
-// Naive substring scan over every session, case-insensitive. No index: the whole
-// on-disk corpus is small enough (measured ~100MB) that a full parse per query
-// stays well under a second on local disk.
-export async function searchSessions(
-	store: SessionStore,
-	query: string,
-	opts: SearchOptions = {},
-): Promise<SessionSearchResult[]> {
-	const needle = query.trim().toLowerCase();
-	if (!needle) return [];
-
-	const maxHits = opts.maxHitsPerSession ?? 5;
-	const sessions = await store.listSessions();
-
-	const results = await Promise.all(
-		sessions.map(async (session): Promise<SessionSearchResult | null> => {
-			let entries: AnyEntry[];
-			try {
-				entries = (await store.parseSession(session.jsonl)).entries;
-			} catch {
-				return null;
-			}
-
-			const hits: SearchHit[] = [];
-			let total = 0;
-			for (const entry of entries) {
-				for (const seg of extractSegments(entry)) {
-					const idx = seg.text.toLowerCase().indexOf(needle);
-					if (idx === -1) continue;
-					total++;
-					if (hits.length < maxHits)
-						hits.push(makeHit(seg, idx, needle.length));
-				}
-			}
-
-			return total > 0 ? { session, hits, totalHits: total } : null;
-		}),
-	);
-
-	// listSessions already returns newest-first; preserve that order.
-	const filtered = results.filter((r): r is SessionSearchResult => r !== null);
-	return opts.maxSessions ? filtered.slice(0, opts.maxSessions) : filtered;
+// Naive substring scan of one session's entries, case-insensitive. `needle` must
+// already be lowercased and non-empty. Returns up to `maxHits` snippets plus the
+// full match count so the caller can show "+N more". No index: the on-disk corpus
+// is small enough (measured ~100MB) that a full parse per query stays sub-second.
+export function scanEntries(
+	entries: AnyEntry[],
+	needle: string,
+	maxHits: number,
+): { hits: SearchHit[]; totalHits: number } {
+	const hits: SearchHit[] = [];
+	let totalHits = 0;
+	for (const entry of entries) {
+		for (const seg of extractSegments(entry)) {
+			const idx = seg.text.toLowerCase().indexOf(needle);
+			if (idx === -1) continue;
+			totalHits++;
+			if (hits.length < maxHits) hits.push(makeHit(seg, idx, needle.length));
+		}
+	}
+	return { hits, totalHits };
 }

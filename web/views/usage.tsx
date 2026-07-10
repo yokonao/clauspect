@@ -1,5 +1,9 @@
-import { displayToolName } from "../../turn";
-import { cacheHitRate, totalToolCalls, type UsageStats } from "../../usage";
+import { displayToolName } from "../../domain/turn";
+import {
+	cacheHitRate,
+	totalToolCalls,
+	type UsageStats,
+} from "../../domain/usage";
 import { compactNum } from "./format";
 
 function Stat({ label, value }: { label: string; value: string }) {
