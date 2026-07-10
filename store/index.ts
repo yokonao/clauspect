@@ -111,37 +111,11 @@ export class SessionStore {
 							if (!entry.endsWith(".jsonl")) return;
 							const sessionId = entry.slice(0, -6);
 							if (!UUID_REGEX.test(sessionId)) return;
-
-							const jsonlPath = join(projectPath, entry);
-							let fileStat: Stats;
-							try {
-								fileStat = await stat(jsonlPath);
-							} catch (error) {
-								this.logger.warn("failed to stat session jsonl", {
-									jsonlPath,
-									error: String(error),
-								});
-								return;
-							}
-
-							const siblingDir = join(projectPath, sessionId);
-							let additions: string[] = [];
-							if (existsSync(siblingDir)) {
-								const addFiles = await readdir(siblingDir, { recursive: true });
-								additions = addFiles
-									.map((f) => join(siblingDir, f as string))
-									.sort();
-							}
-
-							const { title, cwd } = await this.scanSessionMeta(jsonlPath);
-							sessions.push({
-								id: sessionId,
-								directory: cwd ?? projectEntry.name,
-								jsonl: jsonlPath,
-								mtime: fileStat.mtime,
-								additions,
-								title,
-							});
+							const session = await this.loadSession(
+								projectEntry.name,
+								sessionId,
+							);
+							if (session) sessions.push(session);
 						}),
 					);
 				}),
@@ -149,6 +123,73 @@ export class SessionStore {
 
 		sessions.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
 		return sessions.slice(0, limit);
+	}
+
+	// Locate one session by id without scanning every file. The jsonl is always
+	// named <id>.jsonl; we only need to find which project dir holds it, then read
+	// that single file.
+	async getSession(id: string): Promise<Session | undefined> {
+		if (!UUID_REGEX.test(id)) return undefined;
+
+		let projectEntries: Dirent<string>[];
+		try {
+			projectEntries = await readdir(this.root, {
+				withFileTypes: true,
+				encoding: "utf8",
+			});
+		} catch (error) {
+			this.logger.warn("failed to read projects directory", {
+				root: this.root,
+				error: String(error),
+			});
+			return undefined;
+		}
+
+		for (const projectEntry of projectEntries) {
+			if (!projectEntry.isDirectory()) continue;
+			const jsonlPath = join(this.root, projectEntry.name, `${id}.jsonl`);
+			if (!existsSync(jsonlPath)) continue;
+			return this.loadSession(projectEntry.name, id);
+		}
+		return undefined;
+	}
+
+	// Build a Session from its jsonl: stat for mtime, collect sibling additions,
+	// and scan the file once for title/cwd. Returns undefined if the file vanished.
+	private async loadSession(
+		projectName: string,
+		sessionId: string,
+	): Promise<Session | undefined> {
+		const projectPath = join(this.root, projectName);
+		const jsonlPath = join(projectPath, `${sessionId}.jsonl`);
+
+		let fileStat: Stats;
+		try {
+			fileStat = await stat(jsonlPath);
+		} catch (error) {
+			this.logger.warn("failed to stat session jsonl", {
+				jsonlPath,
+				error: String(error),
+			});
+			return undefined;
+		}
+
+		const siblingDir = join(projectPath, sessionId);
+		let additions: string[] = [];
+		if (existsSync(siblingDir)) {
+			const addFiles = await readdir(siblingDir, { recursive: true });
+			additions = addFiles.map((f) => join(siblingDir, f as string)).sort();
+		}
+
+		const { title, cwd } = await this.scanSessionMeta(jsonlPath);
+		return {
+			id: sessionId,
+			directory: cwd ?? projectName,
+			jsonl: jsonlPath,
+			mtime: fileStat.mtime,
+			additions,
+			title,
+		};
 	}
 
 	async listSubagents(session: Session): Promise<SubagentMeta[]> {

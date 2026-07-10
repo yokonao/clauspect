@@ -15,8 +15,7 @@ const store = new SessionStore({ logger: consoleLogger });
 async function findSession(
 	id: string | undefined,
 ): Promise<Session | undefined> {
-	const sessions = await store.listSessions();
-	return sessions.find((s) => s.id === id);
+	return id ? store.getSession(id) : undefined;
 }
 
 // A single toolUseId→agentId map covers every spawn point at any depth, since
