@@ -1,9 +1,9 @@
-import type { TurnGroup } from "../../domain/turn";
 import type { UsageStats } from "../../domain/usage";
 import type { Session, SubagentMeta } from "../../store";
 import { Conversation, type RenderOptions } from "./conversation";
 import { abs } from "./format";
 import { renderPage, Shell } from "./shell";
+import type { TurnGroup } from "./turn";
 import { UsageSummary } from "./usage";
 
 export interface SessionDetailData {

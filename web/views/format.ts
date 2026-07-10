@@ -1,4 +1,4 @@
-import { toolInputText } from "../../domain/turn";
+import { toolInputText } from "../../domain/tool";
 
 // Per-tool display cap for the tool-row summary. Tools with naturally short
 // fields (file paths, skill names) and Bash (whose full command is the point)

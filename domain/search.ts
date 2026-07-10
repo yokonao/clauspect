@@ -1,5 +1,5 @@
 import type { AnyEntry } from "./model/jsonl";
-import { toolInputText } from "./turn";
+import { toolInputText } from "./tool";
 
 export type HitKind = "user" | "assistant" | "thinking" | "tool";
 

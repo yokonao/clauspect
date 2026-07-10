@@ -1,5 +1,4 @@
 import { scanEntries } from "../domain/search";
-import { buildTurnGroups } from "../domain/turn";
 import { aggregateUsage } from "../domain/usage";
 import {
 	consoleLogger,
@@ -13,6 +12,7 @@ import { rawPage } from "./views/raw";
 import { type SessionSearchResult, searchPage } from "./views/search";
 import { renderPage, Shell } from "./views/shell";
 import { subagentPage } from "./views/subagent";
+import { buildTurnGroups } from "./views/turn";
 
 const store = new SessionStore({ logger: consoleLogger });
 
