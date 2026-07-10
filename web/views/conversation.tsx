@@ -132,14 +132,19 @@ function Turn(props: { group: TurnGroup; opts: RenderOptions }) {
 	);
 }
 
-export function renderGroupsToHtml(
-	groups: TurnGroup[],
-	opts: RenderOptions = {},
-): string {
-	if (groups.length === 0) {
-		return `<div class="state">(no conversation found)</div>`;
+export function Conversation(props: {
+	groups: TurnGroup[];
+	opts?: RenderOptions;
+}) {
+	const opts = props.opts ?? {};
+	if (props.groups.length === 0) {
+		return <div class="state">(no conversation found)</div>;
 	}
-	return groups
-		.map((group) => String(<Turn group={group} opts={opts} />))
-		.join("");
+	return (
+		<>
+			{props.groups.map((group) => (
+				<Turn group={group} opts={opts} />
+			))}
+		</>
+	);
 }

@@ -1,4 +1,5 @@
 import type { SessionDetailData } from "../data";
+import { Conversation } from "./conversation";
 import { abs } from "./format";
 import { renderPage, Shell } from "./shell";
 import { UsageSummary } from "./usage";
@@ -32,7 +33,7 @@ function Agents({
 }
 
 export function detailPage(data: SessionDetailData): string {
-	const { session, agents, html, usage } = data;
+	const { session, agents, groups, opts, usage } = data;
 	const title = session.title || "Untitled";
 	const usageNote =
 		agents.length > 0
@@ -59,7 +60,7 @@ export function detailPage(data: SessionDetailData): string {
 				</div>
 				<UsageSummary stats={usage} note={usageNote} />
 				<div>
-					<div dangerouslySetInnerHTML={{ __html: html }} />
+					<Conversation groups={groups} opts={opts} />
 					<Agents sessionId={session.id} agents={agents} />
 				</div>
 			</div>
