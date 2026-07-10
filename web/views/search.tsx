@@ -1,4 +1,4 @@
-import type { HitKind, SearchHit } from "../../session/search";
+import type { HitKind, SearchHit } from "../../search";
 import type { SearchData } from "../data";
 import { shortName } from "./format";
 import { renderPage, Shell } from "./shell";

@@ -1,13 +1,13 @@
-import { type SessionSearchResult, searchSessions } from "../session/search";
+import { type SessionSearchResult, searchSessions } from "../search";
 import {
 	consoleLogger,
 	type RawEntry,
 	type Session,
 	SessionStore,
 	type SubagentMeta,
-} from "../session/store";
-import { aggregateUsage, type UsageStats } from "../session/usage";
+} from "../store";
 import { buildTurnGroups } from "../turn";
+import { aggregateUsage, type UsageStats } from "../usage";
 import { renderGroupsToHtml } from "./views/conversation";
 
 const store = new SessionStore({ logger: consoleLogger });

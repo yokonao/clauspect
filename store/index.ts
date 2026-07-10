@@ -2,7 +2,7 @@ import type { Dirent, Stats } from "node:fs";
 import { existsSync } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
-import { type ParsedSessionJsonl, parseEntries } from "./jsonl";
+import { type ParsedSessionJsonl, parseEntries } from "../session/jsonl";
 
 export interface Logger {
 	warn(message: string, context?: Record<string, unknown>): void;

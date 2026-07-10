@@ -1,4 +1,4 @@
-import type { AnyEntry } from "./jsonl";
+import type { AnyEntry } from "../session/jsonl";
 
 // Session-level usage totals. Cost is intentionally omitted: per-model pricing
 // is uncertain and drifts, so we report raw counts and let the reader judge.
