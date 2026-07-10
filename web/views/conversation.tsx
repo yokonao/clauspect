@@ -132,12 +132,10 @@ function Turn(props: { group: TurnGroup; opts: RenderOptions }) {
 	);
 }
 
-export interface ConversationProps {
+export function Conversation(props: {
 	groups: TurnGroup[];
 	opts?: RenderOptions;
-}
-
-export function Conversation(props: ConversationProps) {
+}) {
 	const opts = props.opts ?? {};
 	if (props.groups.length === 0) {
 		return <div class="state">(no conversation found)</div>;
