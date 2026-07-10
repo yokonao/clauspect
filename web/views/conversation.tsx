@@ -80,8 +80,10 @@ function Blocks(props: { blocks: AssistantBlock[]; opts: RenderOptions }) {
 						</div>
 						{block.tool.answer && (
 							<div class="tanswer">
-								{block.tool.answer.split("\n").map((l) => (
-									<div>↳ {l}</div>
+								{block.tool.answer.map((a) => (
+									<div>
+										↳ {a.question} → {a.answer}
+									</div>
 								))}
 							</div>
 						)}

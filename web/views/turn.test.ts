@@ -42,5 +42,7 @@ test("AskUserQuestion tool block carries the user's chosen answers", () => {
 
 	const groups = buildTurnGroups(entries);
 	const tool = groups[0]?.blocks.find((b) => b.kind === "tool");
-	expect(tool?.kind === "tool" && tool.tool.answer).toBe("Adopt? → Yes");
+	expect(tool?.kind === "tool" && tool.tool.answer).toEqual([
+		{ question: "Adopt?", answer: "Yes" },
+	]);
 });

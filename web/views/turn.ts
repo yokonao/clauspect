@@ -28,6 +28,11 @@ function userTextBlocks(entry: UserEntry): string[] | null {
 	return texts.length ? texts : null;
 }
 
+export interface AskAnswer {
+	question: string;
+	answer: string;
+}
+
 export interface ToolCall {
 	name: string;
 	/** Raw tool input; the view derives its summary/plan display from this. */
@@ -35,8 +40,8 @@ export interface ToolCall {
 	id?: string;
 	/** uuid of the entry that emitted this tool_use, for deep-linking to the raw view. */
 	entryUuid?: string;
-	/** For AskUserQuestion: the user's chosen answers, one "Q → A" per line. */
-	answer?: string;
+	/** For AskUserQuestion: the user's chosen question/answer pairs. */
+	answer?: AskAnswer[];
 }
 
 // An assistant turn is a sequence of text and tool_use blocks in the order
@@ -48,7 +53,7 @@ export type AssistantBlock =
 
 function formatAssistantEntry(
 	entry: AssistantEntry,
-	answers: Map<string, string>,
+	answers: Map<string, AskAnswer[]>,
 ): AssistantBlock[] {
 	const blocks: AssistantBlock[] = [];
 
@@ -75,9 +80,9 @@ function formatAssistantEntry(
 }
 
 // Pull the user's selected answers out of an AskUserQuestion tool_result. Its
-// content is a sentence of `"question"="answer"` pairs; we reduce it to plain
-// "question → answer" lines. Returns null if no pairs are found.
-function parseAskAnswers(content: string | unknown[]): string | null {
+// content is a sentence of `"question"="answer"` pairs; we recover them as
+// structured pairs (the view decides how to render them). Null if none found.
+function parseAskAnswers(content: string | unknown[]): AskAnswer[] | null {
 	const text =
 		typeof content === "string"
 			? content
@@ -90,12 +95,12 @@ function parseAskAnswers(content: string | unknown[]): string | null {
 					.join("");
 	const pairs = [...text.matchAll(/"([^"]*)"="([^"]*)"/g)];
 	if (pairs.length === 0) return null;
-	return pairs.map((m) => `${m[1]} → ${m[2]}`).join("\n");
+	return pairs.map((m) => ({ question: m[1] ?? "", answer: m[2] ?? "" }));
 }
 
-// Map each AskUserQuestion tool_use id to its answer, so the tool row can show
+// Map each AskUserQuestion tool_use id to its answers, so the tool row can show
 // what the user actually chose (answers live in a later user tool_result).
-function collectAskAnswers(entries: AnyEntry[]): Map<string, string> {
+function collectAskAnswers(entries: AnyEntry[]): Map<string, AskAnswer[]> {
 	const askIds = new Set<string>();
 	for (const entry of entries) {
 		if (entry.type !== "assistant") continue;
@@ -105,7 +110,7 @@ function collectAskAnswers(entries: AnyEntry[]): Map<string, string> {
 		}
 	}
 
-	const answers = new Map<string, string>();
+	const answers = new Map<string, AskAnswer[]>();
 	for (const entry of entries) {
 		if (entry.type !== "user" || typeof entry.message.content === "string")
 			continue;
