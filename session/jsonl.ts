@@ -594,15 +594,6 @@ export const ModeEntrySchema = z.object({
 	sessionId: z.string().optional(),
 });
 
-// Synthetic entry for a line that failed JSON.parse or schema validation. Not a
-// real log shape, so it stays out of SessionEntrySchema and joins AnyEntry
-// directly. `raw` is the untouched line so the app can re-parse it itself.
-export const ErrorEntrySchema = z.object({
-	type: z.literal("__error__"),
-	raw: z.string(),
-	error: z.string(),
-});
-
 // --- Top-level discriminated union ---
 
 export const SessionEntrySchema = z.discriminatedUnion("type", [
@@ -621,13 +612,17 @@ export const SessionEntrySchema = z.discriminatedUnion("type", [
 	ModeEntrySchema,
 ]);
 
-// SystemEntry uses a nested discriminatedUnion, and ErrorEntry is synthetic, so
-// both join at the top level rather than inside SessionEntrySchema.
-export const AnyEntrySchema = z.union([
-	SessionEntrySchema,
-	SystemEntrySchema,
-	ErrorEntrySchema,
-]);
+// SystemEntry uses a nested discriminatedUnion, so handle separately
+export const AnyEntrySchema = z.union([SessionEntrySchema, SystemEntrySchema]);
+
+// Synthetic entry for a line that failed JSON.parse or schema validation. It
+// never comes from the log, so it has no zod schema — `parseEntries` mints it
+// directly. `raw` is the untouched line so the app can re-parse it itself.
+export interface ErrorEntry {
+	type: "__error__";
+	raw: string;
+	error: string;
+}
 
 export type AssistantEntry = z.infer<typeof AssistantEntrySchema>;
 export type UserEntry = z.infer<typeof UserEntrySchema>;
@@ -645,8 +640,7 @@ export type AgentNameEntry = z.infer<typeof AgentNameEntrySchema>;
 export type CustomTitleEntry = z.infer<typeof CustomTitleEntrySchema>;
 export type AiTitleEntry = z.infer<typeof AiTitleEntrySchema>;
 export type ModeEntry = z.infer<typeof ModeEntrySchema>;
-export type ErrorEntry = z.infer<typeof ErrorEntrySchema>;
-export type AnyEntry = z.infer<typeof AnyEntrySchema>;
+export type AnyEntry = z.infer<typeof AnyEntrySchema> | ErrorEntry;
 
 export interface ParsedSessionJsonl {
 	entries: AnyEntry[];
