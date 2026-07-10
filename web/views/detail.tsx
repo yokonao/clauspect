@@ -33,7 +33,7 @@ function Agents({
 }
 
 export function detailPage(data: SessionDetailData): string {
-	const { session, agents, groups, opts, usage } = data;
+	const { session, agents, conversation, usage } = data;
 	const title = session.title || "Untitled";
 	const usageNote =
 		agents.length > 0
@@ -60,7 +60,7 @@ export function detailPage(data: SessionDetailData): string {
 				</div>
 				<UsageSummary stats={usage} note={usageNote} />
 				<div>
-					<Conversation groups={groups} opts={opts} />
+					<Conversation {...conversation} />
 					<Agents sessionId={session.id} agents={agents} />
 				</div>
 			</div>

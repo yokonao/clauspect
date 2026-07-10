@@ -4,7 +4,7 @@ import { renderPage, Shell } from "./shell";
 import { UsageSummary } from "./usage";
 
 export function subagentPage(data: SubagentDetailData): string {
-	const { session, agent, groups, opts, usage } = data;
+	const { session, agent, conversation, usage } = data;
 	const heading = agent.description || agent.agentId;
 	return renderPage(
 		<Shell title={`clauspect — ${heading}`}>
@@ -25,7 +25,7 @@ export function subagentPage(data: SubagentDetailData): string {
 					<span class="meta-value">{agent.jsonl}</span>
 				</div>
 				<UsageSummary stats={usage} />
-				<Conversation groups={groups} opts={opts} />
+				<Conversation {...conversation} />
 			</div>
 		</Shell>,
 	);

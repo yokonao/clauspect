@@ -6,9 +6,9 @@ import {
 	SessionStore,
 	type SubagentMeta,
 } from "../store";
-import { buildTurnGroups, type TurnGroup } from "../turn";
+import { buildTurnGroups } from "../turn";
 import { aggregateUsage, type UsageStats } from "../usage";
-import type { RenderOptions } from "./views/conversation";
+import type { ConversationProps } from "./views/conversation";
 
 const store = new SessionStore({ logger: consoleLogger });
 
@@ -43,8 +43,7 @@ export async function loadSessionList(
 export interface SessionDetailData {
 	session: Session;
 	agents: SubagentMeta[];
-	groups: TurnGroup[];
-	opts: RenderOptions;
+	conversation: ConversationProps;
 	usage: UsageStats;
 }
 
@@ -56,11 +55,13 @@ export async function loadSessionDetail(
 
 	const agents = await store.listSubagents(session);
 	const parsed = await store.parseSession(session.jsonl);
-	const groups = buildTurnGroups(parsed.entries);
-	const opts: RenderOptions = {
-		sessionId: session.id,
-		agentByToolUseId: agentMap(agents),
-		rawBasePath: `/sessions/${session.id}/raw`,
+	const conversation: ConversationProps = {
+		groups: buildTurnGroups(parsed.entries),
+		opts: {
+			sessionId: session.id,
+			agentByToolUseId: agentMap(agents),
+			rawBasePath: `/sessions/${session.id}/raw`,
+		},
 	};
 
 	// Usage totals span the session plus its subagents (real spend lives in the
@@ -72,14 +73,13 @@ export async function loadSessionDetail(
 	}
 	const usage = aggregateUsage(entries);
 
-	return { session, agents, groups, opts, usage };
+	return { session, agents, conversation, usage };
 }
 
 export interface SubagentDetailData {
 	session: Session;
 	agent: SubagentMeta;
-	groups: TurnGroup[];
-	opts: RenderOptions;
+	conversation: ConversationProps;
 	usage: UsageStats;
 }
 
@@ -95,18 +95,19 @@ export async function loadSubagentDetail(
 	if (!agent) return null;
 
 	const parsed = await store.parseSession(agent.jsonl);
-	const groups = buildTurnGroups(parsed.entries);
-	const opts: RenderOptions = {
-		sessionId: session.id,
-		agentByToolUseId: agentMap(agents),
-		rawBasePath: `/sessions/${session.id}/agents/${agentId}/raw`,
+	const conversation: ConversationProps = {
+		groups: buildTurnGroups(parsed.entries),
+		opts: {
+			sessionId: session.id,
+			agentByToolUseId: agentMap(agents),
+			rawBasePath: `/sessions/${session.id}/agents/${agentId}/raw`,
+		},
 	};
 
 	return {
 		session,
 		agent,
-		groups,
-		opts,
+		conversation,
 		usage: aggregateUsage(parsed.entries),
 	};
 }
