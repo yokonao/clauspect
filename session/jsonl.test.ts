@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { parseEntries } from "./jsonl";
 
 // Regression guard for schema drift: each line below is a real shape that used
-// to fail validation and land in parseErrors. They must all parse cleanly.
+// to fail validation and land in an __error__ entry. They must all parse cleanly.
 const base = {
 	parentUuid: null,
 	isSidechain: false,
@@ -44,7 +44,15 @@ const lines = [
 ];
 
 test("previously-drifting entry shapes parse without errors", () => {
-	const { entries, parseErrors } = parseEntries(lines.join("\n"));
-	expect(parseErrors).toEqual([]);
+	const { entries } = parseEntries(lines.join("\n"));
+	expect(entries.filter((e) => e.type === "__error__")).toEqual([]);
 	expect(entries).toHaveLength(lines.length);
+});
+
+test("unparseable and invalid lines become __error__ entries", () => {
+	const { entries } = parseEntries('{bad json\n{"type":"nope"}');
+	expect(entries.map((e) => e.type)).toEqual(["__error__", "__error__"]);
+	const [json, schema] = entries;
+	expect(json).toMatchObject({ type: "__error__", lineNumber: 1 });
+	expect(schema).toMatchObject({ type: "__error__", lineNumber: 2 });
 });

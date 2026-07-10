@@ -205,8 +205,8 @@ export class SessionStore {
 		return agents;
 	}
 
-	// Line-level parse failures are returned in `parseErrors` for callers to
-	// surface; only a total read failure is logged.
+	// Line-level parse failures ride the entries stream as `__error__` entries
+	// for callers to surface; only a total read failure is logged.
 	async parseSession(jsonlPath: string): Promise<ParsedSessionJsonl> {
 		const text = await Bun.file(jsonlPath).text();
 		return parseEntries(text);

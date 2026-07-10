@@ -594,6 +594,16 @@ export const ModeEntrySchema = z.object({
 	sessionId: z.string().optional(),
 });
 
+// Synthetic entry for a line that failed JSON.parse or schema validation. Not a
+// real log shape — `parseEntries` emits it so failures ride the entries stream
+// as typed values instead of a side-channel array.
+export const ErrorEntrySchema = z.object({
+	type: z.literal("__error__"),
+	lineNumber: z.number(),
+	raw: z.string(),
+	error: z.string(),
+});
+
 // --- Top-level discriminated union ---
 
 export const SessionEntrySchema = z.discriminatedUnion("type", [
@@ -610,6 +620,7 @@ export const SessionEntrySchema = z.discriminatedUnion("type", [
 	CustomTitleEntrySchema,
 	AiTitleEntrySchema,
 	ModeEntrySchema,
+	ErrorEntrySchema,
 ]);
 
 // SystemEntry uses a nested discriminatedUnion, so handle separately
@@ -631,19 +642,17 @@ export type AgentNameEntry = z.infer<typeof AgentNameEntrySchema>;
 export type CustomTitleEntry = z.infer<typeof CustomTitleEntrySchema>;
 export type AiTitleEntry = z.infer<typeof AiTitleEntrySchema>;
 export type ModeEntry = z.infer<typeof ModeEntrySchema>;
+export type ErrorEntry = z.infer<typeof ErrorEntrySchema>;
 export type AnyEntry = z.infer<typeof AnyEntrySchema>;
 
 export interface ParsedSessionJsonl {
 	entries: AnyEntry[];
-	parseErrors: Array<{ lineNumber: number; raw: string; error: string }>;
 }
 
 export function parseEntries(text: string): ParsedSessionJsonl {
 	const lines = text.split("\n");
 
 	const entries: AnyEntry[] = [];
-	const parseErrors: Array<{ lineNumber: number; raw: string; error: string }> =
-		[];
 
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i]?.trim();
@@ -653,7 +662,8 @@ export function parseEntries(text: string): ParsedSessionJsonl {
 		try {
 			raw = JSON.parse(line);
 		} catch (e) {
-			parseErrors.push({
+			entries.push({
+				type: "__error__",
 				lineNumber: i + 1,
 				raw: line.slice(0, 200),
 				error: String(e),
@@ -665,7 +675,8 @@ export function parseEntries(text: string): ParsedSessionJsonl {
 		if (result.success) {
 			entries.push(result.data);
 		} else {
-			parseErrors.push({
+			entries.push({
+				type: "__error__",
 				lineNumber: i + 1,
 				raw: line.slice(0, 200),
 				error: result.error.issues
@@ -675,5 +686,5 @@ export function parseEntries(text: string): ParsedSessionJsonl {
 		}
 	}
 
-	return { entries, parseErrors };
+	return { entries };
 }
