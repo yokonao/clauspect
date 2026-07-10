@@ -1,14 +1,17 @@
-import { type SessionSearchResult, searchSessions } from "../search";
+import { searchSessions } from "../search";
 import {
 	consoleLogger,
-	type RawEntry,
 	type Session,
 	SessionStore,
 	type SubagentMeta,
 } from "../store";
-import { buildTurnGroups, type TurnGroup } from "../turn";
-import { aggregateUsage, type UsageStats } from "../usage";
-import type { RenderOptions } from "./views/conversation";
+import { buildTurnGroups } from "../turn";
+import { aggregateUsage } from "../usage";
+import type { SessionDetailData } from "./views/detail";
+import type { SessionListData } from "./views/list";
+import type { RawViewData } from "./views/raw";
+import type { SearchData } from "./views/search";
+import type { SubagentDetailData } from "./views/subagent";
 
 const store = new SessionStore({ logger: consoleLogger });
 
@@ -24,11 +27,6 @@ function agentMap(agents: SubagentMeta[]): Map<string, string> {
 	return new Map(agents.map((a) => [a.toolUseId, a.agentId]));
 }
 
-export interface SessionListData {
-	sessions: Session[];
-	projects: string[];
-}
-
 export async function loadSessionList(
 	projectFilter?: string | null,
 ): Promise<SessionListData> {
@@ -40,14 +38,6 @@ export async function loadSessionList(
 	return { sessions: list, projects };
 }
 
-export interface SessionDetailData {
-	session: Session;
-	agents: SubagentMeta[];
-	groups: TurnGroup[];
-	opts: RenderOptions;
-	usage: UsageStats;
-}
-
 export async function loadSessionDetail(
 	id: string,
 ): Promise<SessionDetailData | null> {
@@ -57,7 +47,7 @@ export async function loadSessionDetail(
 	const agents = await store.listSubagents(session);
 	const parsed = await store.parseSession(session.jsonl);
 	const groups = buildTurnGroups(parsed.entries);
-	const opts: RenderOptions = {
+	const opts = {
 		sessionId: session.id,
 		agentByToolUseId: agentMap(agents),
 		rawBasePath: `/sessions/${session.id}/raw`,
@@ -75,14 +65,6 @@ export async function loadSessionDetail(
 	return { session, agents, groups, opts, usage };
 }
 
-export interface SubagentDetailData {
-	session: Session;
-	agent: SubagentMeta;
-	groups: TurnGroup[];
-	opts: RenderOptions;
-	usage: UsageStats;
-}
-
 export async function loadSubagentDetail(
 	id: string,
 	agentId: string,
@@ -96,7 +78,7 @@ export async function loadSubagentDetail(
 
 	const parsed = await store.parseSession(agent.jsonl);
 	const groups = buildTurnGroups(parsed.entries);
-	const opts: RenderOptions = {
+	const opts = {
 		sessionId: session.id,
 		agentByToolUseId: agentMap(agents),
 		rawBasePath: `/sessions/${session.id}/agents/${agentId}/raw`,
@@ -109,13 +91,6 @@ export async function loadSubagentDetail(
 		opts,
 		usage: aggregateUsage(parsed.entries),
 	};
-}
-
-export interface RawViewData {
-	session: Session;
-	agent?: SubagentMeta;
-	backPath: string;
-	entries: RawEntry[];
 }
 
 export async function loadRawView(id: string): Promise<RawViewData | null> {
@@ -141,12 +116,6 @@ export async function loadSubagentRawView(
 		backPath: `/sessions/${session.id}/agents/${agentId}`,
 		entries,
 	};
-}
-
-export interface SearchData {
-	query: string;
-	results: SessionSearchResult[];
-	totalHits: number;
 }
 
 export async function loadSearch(query: string): Promise<SearchData> {

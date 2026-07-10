@@ -1,8 +1,18 @@
-import type { SessionDetailData } from "../data";
-import { Conversation } from "./conversation";
+import type { Session, SubagentMeta } from "../../store";
+import type { TurnGroup } from "../../turn";
+import type { UsageStats } from "../../usage";
+import { Conversation, type RenderOptions } from "./conversation";
 import { abs } from "./format";
 import { renderPage, Shell } from "./shell";
 import { UsageSummary } from "./usage";
+
+export interface SessionDetailData {
+	session: Session;
+	agents: SubagentMeta[];
+	groups: TurnGroup[];
+	opts: RenderOptions;
+	usage: UsageStats;
+}
 
 function Agents({
 	sessionId,

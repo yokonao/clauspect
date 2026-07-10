@@ -1,6 +1,11 @@
-import type { SessionListData } from "../data";
+import type { Session } from "../../store";
 import { abs, rel, shortName } from "./format";
 import { renderPage, Shell } from "./shell";
+
+export interface SessionListData {
+	sessions: Session[];
+	projects: string[];
+}
 
 // Filters already-rendered rows in place — no fetch, no HTML generation.
 const filterScript = `

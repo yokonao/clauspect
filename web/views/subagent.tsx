@@ -1,7 +1,17 @@
-import type { SubagentDetailData } from "../data";
-import { Conversation } from "./conversation";
+import type { Session, SubagentMeta } from "../../store";
+import type { TurnGroup } from "../../turn";
+import type { UsageStats } from "../../usage";
+import { Conversation, type RenderOptions } from "./conversation";
 import { renderPage, Shell } from "./shell";
 import { UsageSummary } from "./usage";
+
+export interface SubagentDetailData {
+	session: Session;
+	agent: SubagentMeta;
+	groups: TurnGroup[];
+	opts: RenderOptions;
+	usage: UsageStats;
+}
 
 export function subagentPage(data: SubagentDetailData): string {
 	const { session, agent, groups, opts, usage } = data;

@@ -1,7 +1,12 @@
-import type { HitKind, SearchHit } from "../../search";
-import type { SearchData } from "../data";
+import type { HitKind, SearchHit, SessionSearchResult } from "../../search";
 import { shortName } from "./format";
 import { renderPage, Shell } from "./shell";
+
+export interface SearchData {
+	query: string;
+	results: SessionSearchResult[];
+	totalHits: number;
+}
 
 const KIND_LABEL: Record<HitKind, string> = {
 	user: "User",

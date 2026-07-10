@@ -1,5 +1,12 @@
-import type { RawViewData } from "../data";
+import type { RawEntry, Session, SubagentMeta } from "../../store";
 import { renderPage, Shell } from "./shell";
+
+export interface RawViewData {
+	session: Session;
+	agent?: SubagentMeta;
+	backPath: string;
+	entries: RawEntry[];
+}
 
 // Readable dump of a session (or subagent) jsonl: every line pretty-printed,
 // anchored by uuid so tool rows can deep-link to `#entry-<uuid>`. Text children
