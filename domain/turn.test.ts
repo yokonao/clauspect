@@ -1,11 +1,6 @@
 import { expect, test } from "bun:test";
 import type { AnyEntry } from "./model/jsonl";
-import { buildTurnGroups, displayToolName, summarizeToolInput } from "./turn";
-
-test("MCP tool name renders as server: tool, not the raw mcp__ form", () => {
-	expect(displayToolName("mcp__jira__create_issue")).toBe("jira: create_issue");
-	expect(displayToolName("Bash")).toBe("Bash");
-});
+import { buildTurnGroups, summarizeToolInput } from "./turn";
 
 test("MCP tools get no summary — input structure is arbitrary, use the raw view", () => {
 	const summary = summarizeToolInput("mcp__jira__create_issue", {

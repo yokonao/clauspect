@@ -1,9 +1,5 @@
-import {
-	type AssistantBlock,
-	displayToolName,
-	formatTimestamp,
-	type TurnGroup,
-} from "../../domain/turn";
+import type { AssistantBlock, TurnGroup } from "../../domain/turn";
+import { displayToolName, formatTimestamp } from "./format";
 import { renderMarkdown } from "./markdown";
 
 // --- HTML renderer ---

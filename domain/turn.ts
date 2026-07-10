@@ -58,21 +58,6 @@ export function summarizeToolInput(
 	}
 }
 
-// MCP tool ids have the form `mcp__<server>__<tool>`; the raw double-underscore
-// form is noisy, so show it as "server: tool".
-export function displayToolName(name: string): string {
-	const m = name.match(/^mcp__(.+?)__(.+)$/);
-	return m ? `${m[1]}: ${m[2]}` : name;
-}
-
-// --- Formatters ---
-
-export function formatTimestamp(ts: string | undefined): string {
-	if (!ts) return "";
-	const d = new Date(ts);
-	return d.toISOString().slice(0, 19).replace("T", " ");
-}
-
 function formatUserEntry(entry: UserEntry): string | null {
 	const { message } = entry;
 	const content = message.content;
