@@ -44,11 +44,12 @@ export interface ToolCall {
 	answer?: AskAnswer[];
 }
 
-// An assistant turn is a sequence of text and tool_use blocks in the order
-// they were emitted. Keeping them in one ordered list preserves the natural
-// "text → tool → text" interleaving instead of collapsing into separate lists.
+// An assistant turn is a sequence of text, thinking, and tool_use blocks in the
+// order they were emitted. Keeping them in one ordered list preserves the
+// natural interleaving; which kinds to render is the renderer's call.
 export type AssistantBlock =
 	| { kind: "text"; text: string }
+	| { kind: "thinking"; text: string }
 	| { kind: "tool"; tool: ToolCall };
 
 function formatAssistantEntry(
@@ -61,6 +62,9 @@ function formatAssistantEntry(
 		if (block.type === "text") {
 			const t = block.text.trim();
 			if (t) blocks.push({ kind: "text", text: t });
+		} else if (block.type === "thinking") {
+			const t = block.thinking.trim();
+			if (t) blocks.push({ kind: "thinking", text: t });
 		} else if (block.type === "tool_use") {
 			blocks.push({
 				kind: "tool",
@@ -73,7 +77,6 @@ function formatAssistantEntry(
 				},
 			});
 		}
-		// thinking blocks: skip
 	}
 
 	return blocks;

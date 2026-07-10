@@ -33,6 +33,7 @@ function Blocks(props: { blocks: AssistantBlock[]; opts: RenderOptions }) {
 	return (
 		<>
 			{props.blocks.map((block) => {
+				if (block.kind === "thinking") return null;
 				if (block.kind === "text") {
 					return (
 						<div
@@ -109,7 +110,7 @@ function Turn(props: { group: TurnGroup; opts: RenderOptions }) {
 	}
 
 	const hasUser = group.userText.length > 0;
-	const hasAssistant = group.blocks.length > 0;
+	const hasAssistant = group.blocks.some((b) => b.kind !== "thinking");
 	if (!hasUser && !hasAssistant) return null;
 
 	return (
