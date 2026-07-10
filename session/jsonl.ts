@@ -595,11 +595,10 @@ export const ModeEntrySchema = z.object({
 });
 
 // Synthetic entry for a line that failed JSON.parse or schema validation. Not a
-// real log shape — `parseEntries` emits it so failures ride the entries stream
-// as typed values instead of a side-channel array.
+// real log shape, so it stays out of SessionEntrySchema and joins AnyEntry
+// directly. `raw` is the untouched line so the app can re-parse it itself.
 export const ErrorEntrySchema = z.object({
 	type: z.literal("__error__"),
-	lineNumber: z.number(),
 	raw: z.string(),
 	error: z.string(),
 });
@@ -620,11 +619,15 @@ export const SessionEntrySchema = z.discriminatedUnion("type", [
 	CustomTitleEntrySchema,
 	AiTitleEntrySchema,
 	ModeEntrySchema,
-	ErrorEntrySchema,
 ]);
 
-// SystemEntry uses a nested discriminatedUnion, so handle separately
-export const AnyEntrySchema = z.union([SessionEntrySchema, SystemEntrySchema]);
+// SystemEntry uses a nested discriminatedUnion, and ErrorEntry is synthetic, so
+// both join at the top level rather than inside SessionEntrySchema.
+export const AnyEntrySchema = z.union([
+	SessionEntrySchema,
+	SystemEntrySchema,
+	ErrorEntrySchema,
+]);
 
 export type AssistantEntry = z.infer<typeof AssistantEntrySchema>;
 export type UserEntry = z.infer<typeof UserEntrySchema>;
@@ -662,12 +665,7 @@ export function parseEntries(text: string): ParsedSessionJsonl {
 		try {
 			raw = JSON.parse(line);
 		} catch (e) {
-			entries.push({
-				type: "__error__",
-				lineNumber: i + 1,
-				raw: line.slice(0, 200),
-				error: String(e),
-			});
+			entries.push({ type: "__error__", raw: line, error: String(e) });
 			continue;
 		}
 
@@ -677,8 +675,7 @@ export function parseEntries(text: string): ParsedSessionJsonl {
 		} else {
 			entries.push({
 				type: "__error__",
-				lineNumber: i + 1,
-				raw: line.slice(0, 200),
+				raw: line,
 				error: result.error.issues
 					.map((iss) => `${iss.path.join(".")}: ${iss.message}`)
 					.join("; "),

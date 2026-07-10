@@ -50,9 +50,12 @@ test("previously-drifting entry shapes parse without errors", () => {
 });
 
 test("unparseable and invalid lines become __error__ entries", () => {
-	const { entries } = parseEntries('{bad json\n{"type":"nope"}');
+	const invalid = '{"type":"nope"}';
+	const { entries } = parseEntries(`{bad json\n${invalid}`);
 	expect(entries.map((e) => e.type)).toEqual(["__error__", "__error__"]);
-	const [json, schema] = entries;
-	expect(json).toMatchObject({ type: "__error__", lineNumber: 1 });
-	expect(schema).toMatchObject({ type: "__error__", lineNumber: 2 });
+	// raw is untouched so the app can re-parse it.
+	expect(entries[1]).toMatchObject({ type: "__error__", raw: invalid });
+	expect(JSON.parse((entries[1] as { raw: string }).raw)).toEqual({
+		type: "nope",
+	});
 });
