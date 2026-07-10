@@ -1,5 +1,5 @@
 import type { AnyEntry } from "./model/jsonl";
-import { summarizeToolInput } from "./turn";
+import { toolInputText } from "./turn";
 
 export type HitKind = "user" | "assistant" | "thinking" | "tool";
 
@@ -46,12 +46,12 @@ function extractSegments(entry: AnyEntry): Segment[] {
 				if (b.thinking.trim())
 					out.push({ uuid: entry.uuid, kind: "thinking", text: b.thinking });
 			} else if (b.type === "tool_use") {
-				const summary = summarizeToolInput(b.name, b.input);
-				if (summary)
+				const text = toolInputText(b.name, b.input);
+				if (text)
 					out.push({
 						uuid: entry.uuid,
 						kind: "tool",
-						text: `${b.name}: ${summary}`,
+						text: `${b.name}: ${text}`,
 					});
 			}
 		}

@@ -1,20 +1,25 @@
 import { expect, test } from "bun:test";
 import type { AnyEntry } from "./model/jsonl";
-import { buildTurnGroups, summarizeToolInput } from "./turn";
+import { buildTurnGroups, toolInputText } from "./turn";
 
-test("MCP tools get no summary — input structure is arbitrary, use the raw view", () => {
-	const summary = summarizeToolInput("mcp__jira__create_issue", {
+test("MCP tools get no summary text — input structure is arbitrary, use the raw view", () => {
+	const text = toolInputText("mcp__jira__create_issue", {
 		project_key: "DEMO",
 		summary: "Update the docs",
 	});
-	expect(summary).toBe("");
+	expect(text).toBe("");
 });
 
-test("AskUserQuestion summary lists question texts, not [object Object]", () => {
-	const summary = summarizeToolInput("AskUserQuestion", {
+test("AskUserQuestion text lists question texts, not [object Object]", () => {
+	const text = toolInputText("AskUserQuestion", {
 		questions: [{ question: "Adopt?" }, { question: "Deprecate?" }],
 	});
-	expect(summary).toBe("Adopt? / Deprecate?");
+	expect(text).toBe("Adopt? / Deprecate?");
+});
+
+test("toolInputText does not truncate — search indexes the full command", () => {
+	const cmd = "echo ".repeat(40).trim();
+	expect(toolInputText("Bash", { command: cmd })).toBe(cmd);
 });
 
 test("AskUserQuestion tool block carries the user's chosen answers", () => {

@@ -1,23 +1,20 @@
 import type { AnyEntry, AssistantEntry, UserEntry } from "./model/jsonl";
 
-// --- Tool input summarizer ---
+// --- Tool input text ---
 
-export function summarizeToolInput(
+// The salient text of a tool call: which input field(s) best represent it.
+// Full length, no truncation — search indexes this and the conversation view
+// truncates it for display. MCP/unknown tools have arbitrary input, so we
+// don't guess; the tool name and raw JSON link are enough.
+export function toolInputText(
 	name: string,
 	input: Record<string, unknown>,
 ): string {
-	const truncate = (s: string, max = 120) =>
-		s.length > max ? `${s.slice(0, max)}…` : s;
-
 	switch (name) {
 		case "Bash":
-			// Show the full command — it's the most useful tool detail and
-			// truncating it loses the pipeline/flags that matter most.
 			return String(input.command ?? "");
 		case "Read":
-			return String(input.file_path ?? "");
 		case "Write":
-			return String(input.file_path ?? "");
 		case "Edit":
 			return String(input.file_path ?? "");
 		case "NotebookEdit":
@@ -25,68 +22,60 @@ export function summarizeToolInput(
 		case "WebSearch":
 			return String(input.query ?? "");
 		case "WebFetch":
-			return truncate(String(input.url ?? ""));
+			return String(input.url ?? "");
 		case "Agent":
-			return truncate(String(input.description ?? input.prompt ?? ""), 100);
+			return String(input.description ?? input.prompt ?? "");
 		case "Skill":
 			return String(input.skill ?? "");
 		case "Monitor":
-			return truncate(String(input.command ?? input.description ?? ""));
+			return String(input.command ?? input.description ?? "");
 		case "LSP":
 			return `${input.operation} ${input.filePath}:${input.line}`;
 		case "TaskCreate":
 		case "TaskUpdate":
 		case "TaskGet":
-			return truncate(String(input.subject ?? input.taskId ?? ""), 80);
+			return String(input.subject ?? input.taskId ?? "");
 		case "AskUserQuestion": {
 			const questions = input.questions;
 			if (!Array.isArray(questions)) return "";
-			return truncate(
-				questions
-					.map((q) => (q as { question?: string }).question ?? "")
-					.filter(Boolean)
-					.join(" / "),
-			);
+			return questions
+				.map((q) => (q as { question?: string }).question ?? "")
+				.filter(Boolean)
+				.join(" / ");
 		}
-		case "ExitPlanMode":
-			// The plan body is rendered separately as Markdown; keep the row summary empty.
-			return "";
 		default:
-			// MCP and unknown tools: input structure is arbitrary, so we don't guess
-			// a summary. The tool name and the raw JSON link are enough.
 			return "";
 	}
 }
 
-function formatUserEntry(entry: UserEntry): string | null {
-	const { message } = entry;
-	const content = message.content;
+// The user's text pieces in an entry, trimmed and non-empty. Returns null when
+// the entry carries no user text (only tool_results, or blank) — the caller
+// uses that to decide whether the entry starts a new user turn. How the pieces
+// are joined for display is the view's call.
+function userTextBlocks(entry: UserEntry): string[] | null {
+	const content = entry.message.content;
 
 	if (typeof content === "string") {
-		const trimmed = content.trim();
-		if (!trimmed) return null;
-		return trimmed;
+		const t = content.trim();
+		return t ? [t] : null;
 	}
 
-	const textBlocks = content.filter((b) => b.type === "text");
-	if (textBlocks.length === 0) return null;
-
-	return textBlocks
+	const texts = content
+		.filter((b) => b.type === "text")
 		.map((b) => (b as { type: "text"; text: string }).text.trim())
-		.filter(Boolean)
-		.join("\n\n");
+		.filter(Boolean);
+	return texts.length ? texts : null;
 }
 
 export interface ToolCall {
 	name: string;
-	summary: string;
+	/** Raw tool input; the view derives its summary/plan display from this. */
+	input: Record<string, unknown>;
 	id?: string;
 	/** uuid of the entry that emitted this tool_use, for deep-linking to the raw view. */
 	entryUuid?: string;
 	/** For AskUserQuestion: the user's chosen answers, one "Q → A" per line. */
 	answer?: string;
-	/** For ExitPlanMode: the proposed plan Markdown. */
-	plan?: string;
 }
 
 // An assistant turn is a sequence of text and tool_use blocks in the order
@@ -111,15 +100,10 @@ function formatAssistantEntry(
 				kind: "tool",
 				tool: {
 					name: block.name,
-					summary: summarizeToolInput(block.name, block.input),
+					input: block.input,
 					id: block.id,
 					entryUuid: entry.uuid,
 					answer: answers.get(block.id),
-					plan:
-						block.name === "ExitPlanMode" &&
-						typeof block.input.plan === "string"
-							? block.input.plan
-							: undefined,
 				},
 			});
 		}
@@ -177,7 +161,7 @@ function collectAskAnswers(entries: AnyEntry[]): Map<string, string> {
 // --- Turn grouping ---
 
 export interface TurnGroup {
-	userText: string | null;
+	userText: string[];
 	userTs: string | undefined;
 	blocks: AssistantBlock[];
 	assistantTs: string | undefined;
@@ -197,7 +181,7 @@ export function buildTurnGroups(entries: AnyEntry[]): TurnGroup[] {
 
 	for (const entry of entries) {
 		if (entry.type === "user") {
-			const text = formatUserEntry(entry);
+			const text = userTextBlocks(entry);
 			if (text !== null) {
 				flushCurrent();
 				current = {
@@ -214,7 +198,7 @@ export function buildTurnGroups(entries: AnyEntry[]): TurnGroup[] {
 
 			if (!current) {
 				current = {
-					userText: null,
+					userText: [],
 					userTs: undefined,
 					blocks: [],
 					assistantTs: entry.timestamp,
@@ -230,7 +214,7 @@ export function buildTurnGroups(entries: AnyEntry[]): TurnGroup[] {
 		) {
 			flushCurrent();
 			groups.push({
-				userText: null,
+				userText: [],
 				userTs: entry.timestamp,
 				blocks: [],
 				assistantTs: entry.timestamp,

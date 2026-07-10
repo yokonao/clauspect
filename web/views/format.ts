@@ -1,3 +1,27 @@
+import { toolInputText } from "../../domain/turn";
+
+// Per-tool display cap for the tool-row summary. Tools with naturally short
+// fields (file paths, skill names) and Bash (whose full command is the point)
+// are absent and shown untruncated.
+const TOOL_SUMMARY_MAX: Record<string, number> = {
+	WebFetch: 120,
+	Agent: 100,
+	Monitor: 120,
+	TaskCreate: 80,
+	TaskUpdate: 80,
+	TaskGet: 80,
+	AskUserQuestion: 120,
+};
+
+export function toolSummary(
+	name: string,
+	input: Record<string, unknown>,
+): string {
+	const text = toolInputText(name, input);
+	const max = TOOL_SUMMARY_MAX[name];
+	return max && text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
 export function formatTimestamp(ts: string | undefined): string {
 	if (!ts) return "";
 	const d = new Date(ts);

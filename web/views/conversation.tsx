@@ -1,5 +1,5 @@
 import type { AssistantBlock, TurnGroup } from "../../domain/turn";
-import { displayToolName, formatTimestamp } from "./format";
+import { displayToolName, formatTimestamp, toolSummary } from "./format";
 import { renderMarkdown } from "./markdown";
 
 // --- HTML renderer ---
@@ -44,13 +44,19 @@ function Blocks(props: { blocks: AssistantBlock[]; opts: RenderOptions }) {
 				const agentId = block.tool.id
 					? opts.agentByToolUseId?.get(block.tool.id)
 					: undefined;
+				const summary = toolSummary(block.tool.name, block.tool.input);
+				const plan =
+					block.tool.name === "ExitPlanMode" &&
+					typeof block.tool.input.plan === "string"
+						? block.tool.input.plan
+						: undefined;
 				return (
 					<>
 						<div class="tool">
 							<span class="tname">{displayToolName(block.tool.name)}</span>
-							{block.tool.summary && (
-								<span class="targ" title={block.tool.summary}>
-									{block.tool.summary}
+							{summary && (
+								<span class="targ" title={summary}>
+									{summary}
 								</span>
 							)}
 							{agentId && opts.sessionId && (
@@ -79,11 +85,11 @@ function Blocks(props: { blocks: AssistantBlock[]; opts: RenderOptions }) {
 								))}
 							</div>
 						)}
-						{block.tool.plan && (
+						{plan && (
 							<div
 								class="plan md"
 								dangerouslySetInnerHTML={{
-									__html: renderMarkdown(block.tool.plan),
+									__html: renderMarkdown(plan),
 								}}
 							/>
 						)}
@@ -100,7 +106,7 @@ function Turn(props: { group: TurnGroup; opts: RenderOptions }) {
 		return <div class="compact">Context compacted</div>;
 	}
 
-	const hasUser = group.userText !== null && group.userText !== "";
+	const hasUser = group.userText.length > 0;
 	const hasAssistant = group.blocks.length > 0;
 	if (!hasUser && !hasAssistant) return null;
 
@@ -112,7 +118,7 @@ function Turn(props: { group: TurnGroup; opts: RenderOptions }) {
 						User
 						<Ts ts={group.userTs} />
 					</div>
-					<div class="text">{group.userText}</div>
+					<div class="text">{group.userText.join("\n\n")}</div>
 				</div>
 			)}
 			{hasAssistant && (
