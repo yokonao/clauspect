@@ -36,12 +36,23 @@ const ToolResultContentSchema = z.object({
 	is_error: z.boolean().optional(),
 });
 
-const ImageSourceSchema = z.object({
-	type: z.string(),
-	media_type: z.string().optional(),
-	data: z.string().optional(),
-	url: z.string().optional(),
+// Strict by design: an unknown source type drifts to __error__ so the schema
+// keeps growing. base64 carries media_type+data, url carries url.
+const ImageBase64SourceSchema = z.object({
+	type: z.literal("base64"),
+	media_type: z.string(),
+	data: z.string(),
 });
+
+const ImageUrlSourceSchema = z.object({
+	type: z.literal("url"),
+	url: z.string(),
+});
+
+const ImageSourceSchema = z.discriminatedUnion("type", [
+	ImageBase64SourceSchema,
+	ImageUrlSourceSchema,
+]);
 
 const ImageContentSchema = z.object({
 	type: z.literal("image"),

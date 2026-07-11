@@ -67,9 +67,7 @@ test("meta entries and tool_result carriers don't start a turn", () => {
 				id: "m1",
 				type: "message",
 				role: "assistant",
-				content: [
-					{ type: "tool_use", id: "tid", name: "Read", input: {} },
-				],
+				content: [{ type: "tool_use", id: "tid", name: "Read", input: {} }],
 			},
 		},
 		{
