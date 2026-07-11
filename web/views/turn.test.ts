@@ -50,3 +50,60 @@ test("AskUserQuestion tool block carries the user's chosen answers", () => {
 		{ question: "Adopt?", answer: "Yes" },
 	]);
 });
+
+test("meta entries and tool_result carriers don't start a turn", () => {
+	const entries: AnyEntry[] = [
+		{
+			type: "user",
+			parentUuid: null,
+			isSidechain: false,
+			message: { role: "user", content: "real prompt" },
+		},
+		{
+			type: "assistant",
+			parentUuid: null,
+			isSidechain: false,
+			message: {
+				id: "m1",
+				type: "message",
+				role: "assistant",
+				content: [
+					{ type: "tool_use", id: "tid", name: "Read", input: {} },
+				],
+			},
+		},
+		{
+			type: "user",
+			parentUuid: "m1",
+			isSidechain: false,
+			message: {
+				role: "user",
+				content: [{ type: "tool_result", tool_use_id: "tid", content: "ok" }],
+			},
+		},
+		{
+			type: "user",
+			parentUuid: null,
+			isSidechain: false,
+			isMeta: true,
+			message: { role: "user", content: "## Context Usage\n..." },
+		},
+		{
+			type: "assistant",
+			parentUuid: "m1",
+			isSidechain: false,
+			message: {
+				id: "m2",
+				type: "message",
+				role: "assistant",
+				content: [{ type: "text", text: "done" }],
+			},
+		},
+	] as unknown as AnyEntry[];
+
+	const groups = buildTurnGroups(entries);
+	expect(groups).toHaveLength(1);
+	const g = groups[0];
+	expect(g?.kind === "turn" && g.userText).toEqual(["real prompt"]);
+	expect(g?.kind === "turn" && g.blocks.length).toBe(2);
+});

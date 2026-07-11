@@ -131,6 +131,7 @@ export const UserEntrySchema = BaseEntrySchema.extend({
 	type: z.literal("user"),
 	parentUuid: z.string().nullable(),
 	isSidechain: z.boolean(),
+	isMeta: z.boolean().optional(),
 	promptId: z.string().optional(),
 	message: UserMessageSchema,
 	permissionMode: z.string().optional(),

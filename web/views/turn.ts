@@ -9,19 +9,25 @@ import type {
 // view layer (not domain/) because its output types are defined by what the
 // renderer needs — ordered blocks, deep-link uuids, per-tool answer fields.
 
-// The user's raw text pieces in an entry. Returns null when the entry carries
-// no meaningful (non-whitespace) text — only tool_results or blank — which the
-// caller uses to decide whether the entry starts a new user turn. Trimming and
-// joining the pieces for display is the view's job.
-function userTextBlocks(entry: UserEntry): string[] | null {
+// A tool_result carrier is a user entry the harness emits to feed tool output
+// back — its content array holds tool_result blocks, not a human prompt. It must
+// not start a new turn; the assistant's response to the tool is the same turn.
+function isToolResultCarrier(entry: UserEntry): boolean {
 	const content = entry.message.content;
-	const texts =
-		typeof content === "string"
-			? [content]
-			: content
-					.filter((b) => b.type === "text")
-					.map((b) => (b as { type: "text"; text: string }).text);
-	return texts.some((t) => t.trim()) ? texts : null;
+	return (
+		Array.isArray(content) && content.some((b) => b.type === "tool_result")
+	);
+}
+
+// The user's raw text pieces in a prompt entry. Trimming and joining the pieces
+// for display is the view's job.
+function userTextBlocks(entry: UserEntry): string[] {
+	const content = entry.message.content;
+	return typeof content === "string"
+		? [content]
+		: content
+				.filter((b) => b.type === "text")
+				.map((b) => (b as { type: "text"; text: string }).text);
 }
 
 export interface AskAnswer {
@@ -149,16 +155,17 @@ export function buildTurnGroups(entries: AnyEntry[]): TurnGroup[] {
 
 	for (const entry of entries) {
 		if (entry.type === "user") {
-			const text = userTextBlocks(entry);
-			if (text !== null) {
-				flushCurrent();
-				current = {
-					kind: "turn",
-					userText: text,
-					userTs: entry.timestamp,
-					blocks: [],
-				};
-			}
+			// Skip entries that aren't a human prompt: harness-generated meta
+			// entries (slash-command output, /context, caveats) and tool_result
+			// carriers. Everything else starts a fresh user turn.
+			if (entry.isMeta || isToolResultCarrier(entry)) continue;
+			flushCurrent();
+			current = {
+				kind: "turn",
+				userText: userTextBlocks(entry),
+				userTs: entry.timestamp,
+				blocks: [],
+			};
 		} else if (entry.type === "assistant") {
 			const blocks = formatAssistantEntry(entry, answers);
 			if (blocks.length === 0) continue;
