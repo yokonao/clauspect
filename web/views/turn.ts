@@ -129,19 +129,23 @@ function collectAskAnswers(entries: AnyEntry[]): Map<string, AskAnswer[]> {
 
 // --- Turn grouping ---
 
-export interface TurnGroup {
+// A user prompt and the assistant response it drew, in emission order. Either
+// side may be empty (assistant activity with no preceding user text, or vice
+// versa). Compaction dividers are a separate stream member, not empty turns.
+export interface Turn {
+	kind: "turn";
 	userText: string[];
-	userTs: string | undefined;
+	userTs?: string;
 	blocks: AssistantBlock[];
-	assistantTs: string | undefined;
-	isSidechain: boolean;
-	isCompactBoundary?: boolean;
+	assistantTs?: string;
 }
+
+export type TurnGroup = Turn | { kind: "compact" };
 
 export function buildTurnGroups(entries: AnyEntry[]): TurnGroup[] {
 	const groups: TurnGroup[] = [];
 	const answers = collectAskAnswers(entries);
-	let current: TurnGroup | null = null;
+	let current: Turn | null = null;
 
 	function flushCurrent() {
 		if (current) groups.push(current);
@@ -154,27 +158,17 @@ export function buildTurnGroups(entries: AnyEntry[]): TurnGroup[] {
 			if (text !== null) {
 				flushCurrent();
 				current = {
+					kind: "turn",
 					userText: text,
 					userTs: entry.timestamp,
 					blocks: [],
-					assistantTs: undefined,
-					isSidechain: entry.isSidechain,
 				};
 			}
 		} else if (entry.type === "assistant") {
 			const blocks = formatAssistantEntry(entry, answers);
 			if (blocks.length === 0) continue;
 
-			if (!current) {
-				current = {
-					userText: [],
-					userTs: undefined,
-					blocks: [],
-					assistantTs: entry.timestamp,
-					isSidechain: entry.isSidechain,
-				};
-			}
-
+			if (!current) current = { kind: "turn", userText: [], blocks: [] };
 			if (!current.assistantTs) current.assistantTs = entry.timestamp;
 			current.blocks.push(...blocks);
 		} else if (
@@ -182,14 +176,7 @@ export function buildTurnGroups(entries: AnyEntry[]): TurnGroup[] {
 			entry.subtype === "compact_boundary"
 		) {
 			flushCurrent();
-			groups.push({
-				userText: [],
-				userTs: entry.timestamp,
-				blocks: [],
-				assistantTs: entry.timestamp,
-				isSidechain: false,
-				isCompactBoundary: true,
-			});
+			groups.push({ kind: "compact" });
 		}
 	}
 

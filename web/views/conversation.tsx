@@ -105,7 +105,7 @@ function Blocks(props: { blocks: AssistantBlock[]; opts: RenderOptions }) {
 
 function Turn(props: { group: TurnGroup; opts: RenderOptions }) {
 	const { group, opts } = props;
-	if (group.isCompactBoundary) {
+	if (group.kind === "compact") {
 		return <div class="compact">Context compacted</div>;
 	}
 
