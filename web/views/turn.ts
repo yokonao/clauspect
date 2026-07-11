@@ -9,23 +9,19 @@ import type {
 // view layer (not domain/) because its output types are defined by what the
 // renderer needs — ordered blocks, deep-link uuids, per-tool answer fields.
 
-// The user's text pieces in an entry, trimmed and non-empty. Returns null when
-// the entry carries no user text (only tool_results, or blank) — the caller
-// uses that to decide whether the entry starts a new user turn. How the pieces
-// are joined for display is the view's call.
+// The user's raw text pieces in an entry. Returns null when the entry carries
+// no meaningful (non-whitespace) text — only tool_results or blank — which the
+// caller uses to decide whether the entry starts a new user turn. Trimming and
+// joining the pieces for display is the view's job.
 function userTextBlocks(entry: UserEntry): string[] | null {
 	const content = entry.message.content;
-
-	if (typeof content === "string") {
-		const t = content.trim();
-		return t ? [t] : null;
-	}
-
-	const texts = content
-		.filter((b) => b.type === "text")
-		.map((b) => (b as { type: "text"; text: string }).text.trim())
-		.filter(Boolean);
-	return texts.length ? texts : null;
+	const texts =
+		typeof content === "string"
+			? [content]
+			: content
+					.filter((b) => b.type === "text")
+					.map((b) => (b as { type: "text"; text: string }).text);
+	return texts.some((t) => t.trim()) ? texts : null;
 }
 
 export interface AskAnswer {
@@ -60,11 +56,10 @@ function formatAssistantEntry(
 
 	for (const block of entry.message.content) {
 		if (block.type === "text") {
-			const t = block.text.trim();
-			if (t) blocks.push({ kind: "text", text: t });
+			if (block.text.trim()) blocks.push({ kind: "text", text: block.text });
 		} else if (block.type === "thinking") {
-			const t = block.thinking.trim();
-			if (t) blocks.push({ kind: "thinking", text: t });
+			if (block.thinking.trim())
+				blocks.push({ kind: "thinking", text: block.thinking });
 		} else if (block.type === "tool_use") {
 			blocks.push({
 				kind: "tool",

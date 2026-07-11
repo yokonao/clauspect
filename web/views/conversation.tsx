@@ -38,7 +38,9 @@ function Blocks(props: { blocks: AssistantBlock[]; opts: RenderOptions }) {
 					return (
 						<div
 							class="text md"
-							dangerouslySetInnerHTML={{ __html: renderMarkdown(block.text) }}
+							dangerouslySetInnerHTML={{
+								__html: renderMarkdown(block.text.trim()),
+							}}
 						/>
 					);
 				}
@@ -121,7 +123,12 @@ function Turn(props: { group: TurnGroup; opts: RenderOptions }) {
 						User
 						<Ts ts={group.userTs} />
 					</div>
-					<div class="text">{group.userText.join("\n\n")}</div>
+					<div class="text">
+						{group.userText
+							.map((t) => t.trim())
+							.filter(Boolean)
+							.join("\n\n")}
+					</div>
 				</div>
 			)}
 			{hasAssistant && (
