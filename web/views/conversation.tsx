@@ -1,6 +1,6 @@
 import { displayToolName, formatTimestamp, toolSummary } from "./format";
 import { renderMarkdown } from "./markdown";
-import type { AssistantBlock, TurnGroup } from "./turn";
+import type { AssistantBlock, HookBlock, TurnGroup } from "./turn";
 
 // --- HTML renderer ---
 //
@@ -28,24 +28,26 @@ function Ts(props: { ts: string | undefined }) {
 	);
 }
 
+function HookRow(props: { hook: HookBlock }) {
+	const { hook } = props;
+	return (
+		<div class={`hook hook-${hook.status}`}>
+			<div class="hook-head">
+				<span class="hook-tag">⚙ {hook.event}</span>
+				<span class="hook-name">{hook.name}</span>
+			</div>
+			{hook.body && <div class="hook-body">{hook.body}</div>}
+		</div>
+	);
+}
+
 function Blocks(props: { blocks: AssistantBlock[]; opts: RenderOptions }) {
 	const { opts } = props;
 	return (
 		<>
 			{props.blocks.map((block) => {
 				if (block.kind === "thinking") return null;
-				if (block.kind === "hook") {
-					const { hook } = block;
-					return (
-						<div class={`hook hook-${hook.status}`}>
-							<div class="hook-head">
-								<span class="hook-tag">⚙ {hook.event}</span>
-								<span class="hook-name">{hook.name}</span>
-							</div>
-							{hook.body && <div class="hook-body">{hook.body}</div>}
-						</div>
-					);
-				}
+				if (block.kind === "hook") return <HookRow hook={block.hook} />;
 				if (block.kind === "text") {
 					return (
 						<div
@@ -122,8 +124,16 @@ function Turn(props: { group: TurnGroup; opts: RenderOptions }) {
 	if (group.kind === "compact") {
 		return <div class="compact">Context compacted</div>;
 	}
+	if (group.kind === "session-hook") {
+		return (
+			<section class="session-hook">
+				<HookRow hook={group.hook} />
+			</section>
+		);
+	}
 
-	const hasUser = group.userText.length > 0;
+	const userText = group.userText.map((t) => t.trim()).filter(Boolean);
+	const hasUser = userText.length > 0 || group.userHooks.length > 0;
 	const hasAssistant = group.blocks.some((b) => b.kind !== "thinking");
 	if (!hasUser && !hasAssistant) return null;
 
@@ -135,12 +145,12 @@ function Turn(props: { group: TurnGroup; opts: RenderOptions }) {
 						User
 						<Ts ts={group.userTs} />
 					</div>
-					<div class="text">
-						{group.userText
-							.map((t) => t.trim())
-							.filter(Boolean)
-							.join("\n\n")}
-					</div>
+					{userText.length > 0 && (
+						<div class="text">{userText.join("\n\n")}</div>
+					)}
+					{group.userHooks.map((h) => (
+						<HookRow hook={h} />
+					))}
 				</div>
 			)}
 			{hasAssistant && (

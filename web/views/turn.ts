@@ -186,15 +186,27 @@ function collectAskAnswers(entries: AnyEntry[]): Map<string, AskAnswer[]> {
 // A user prompt and the assistant response it drew, in emission order. Either
 // side may be empty (assistant activity with no preceding user text, or vice
 // versa). Compaction dividers are a separate stream member, not empty turns.
+// `userHooks` are UserPromptSubmit hooks — they augment the prompt, so they
+// belong on the user side, not among the assistant blocks.
 export interface Turn {
 	kind: "turn";
 	userText: string[];
 	userTs?: string;
+	userHooks: HookBlock[];
 	blocks: AssistantBlock[];
 	assistantTs?: string;
 }
 
-export type TurnGroup = Turn | { kind: "compact" };
+// SessionStart hooks fire outside any turn (session boundary), so they get their
+// own frame rather than being folded into an adjacent turn.
+export type TurnGroup =
+	| Turn
+	| { kind: "compact" }
+	| { kind: "session-hook"; hook: HookBlock };
+
+function emptyTurn(): Turn {
+	return { kind: "turn", userText: [], userHooks: [], blocks: [] };
+}
 
 export function buildTurnGroups(entries: AnyEntry[]): TurnGroup[] {
 	const groups: TurnGroup[] = [];
@@ -214,27 +226,34 @@ export function buildTurnGroups(entries: AnyEntry[]): TurnGroup[] {
 			if (entry.isMeta || isToolResultCarrier(entry)) continue;
 			flushCurrent();
 			current = {
-				kind: "turn",
+				...emptyTurn(),
 				userText: userTextBlocks(entry),
 				userTs: entry.timestamp,
-				blocks: [],
 			};
 		} else if (entry.type === "assistant") {
 			const blocks = formatAssistantEntry(entry, answers);
 			if (blocks.length === 0) continue;
 
-			if (!current) current = { kind: "turn", userText: [], blocks: [] };
+			if (!current) current = emptyTurn();
 			if (!current.assistantTs) current.assistantTs = entry.timestamp;
 			current.blocks.push(...blocks);
 		} else if (entry.type === "attachment") {
-			// Hooks never break a turn — they attach in emission order to whatever
-			// turn is open (a bare turn if a hook fires before any user/assistant
-			// activity, e.g. SessionStart). Only user prompts and compaction are
-			// turn boundaries.
 			const hook = hookBlock(entry);
 			if (!hook) continue;
-			if (!current) current = { kind: "turn", userText: [], blocks: [] };
-			current.blocks.push({ kind: "hook", hook });
+			// Route by event: SessionStart is a session boundary (own frame);
+			// UserPromptSubmit augments the prompt (user side); everything else
+			// (PostToolUse, Stop, …) attaches inline in emission order. Hooks never
+			// break a turn — only user prompts and compaction are boundaries.
+			if (hook.event === "SessionStart") {
+				flushCurrent();
+				groups.push({ kind: "session-hook", hook });
+			} else if (hook.event === "UserPromptSubmit") {
+				if (!current) current = emptyTurn();
+				current.userHooks.push(hook);
+			} else {
+				if (!current) current = emptyTurn();
+				current.blocks.push({ kind: "hook", hook });
+			}
 		} else if (
 			entry.type === "system" &&
 			entry.subtype === "compact_boundary"

@@ -108,6 +108,74 @@ test("a PostToolUse hook attaches to the turn without breaking it", () => {
 	expect(hook?.kind === "hook" && hook.hook.event).toBe("PostToolUse");
 });
 
+function hookAttachment(event: string): AnyEntry {
+	return {
+		type: "attachment",
+		parentUuid: null,
+		isSidechain: false,
+		attachment: {
+			type: "hook_success",
+			hookName: event,
+			hookEvent: event,
+			content: "OK",
+			stdout: "OK",
+			stderr: "",
+			exitCode: 0,
+			command: "./hook.sh",
+			durationMs: 1,
+		},
+	} as unknown as AnyEntry;
+}
+
+test("UserPromptSubmit hook lands on the user side, not the assistant blocks", () => {
+	const entries: AnyEntry[] = [
+		{
+			type: "user",
+			parentUuid: null,
+			isSidechain: false,
+			message: { role: "user", content: "prompt" },
+		},
+		hookAttachment("UserPromptSubmit"),
+		{
+			type: "assistant",
+			parentUuid: null,
+			isSidechain: false,
+			message: {
+				id: "m1",
+				type: "message",
+				role: "assistant",
+				content: [{ type: "text", text: "done" }],
+			},
+		},
+	] as unknown as AnyEntry[];
+
+	const groups = buildTurnGroups(entries);
+	expect(groups).toHaveLength(1);
+	const g = groups[0];
+	if (g?.kind !== "turn") throw new Error("expected a turn");
+	expect(g.userHooks.map((h) => h.event)).toEqual(["UserPromptSubmit"]);
+	expect(g.blocks.map((b) => b.kind)).toEqual(["text"]);
+});
+
+test("SessionStart hook becomes its own frame, not a turn", () => {
+	const entries: AnyEntry[] = [
+		hookAttachment("SessionStart"),
+		{
+			type: "user",
+			parentUuid: null,
+			isSidechain: false,
+			message: { role: "user", content: "prompt" },
+		},
+	] as unknown as AnyEntry[];
+
+	const groups = buildTurnGroups(entries);
+	expect(groups.map((g) => g.kind)).toEqual(["session-hook", "turn"]);
+	const first = groups[0];
+	expect(first?.kind === "session-hook" && first.hook.event).toBe(
+		"SessionStart",
+	);
+});
+
 test("meta entries and tool_result carriers don't start a turn", () => {
 	const entries: AnyEntry[] = [
 		{

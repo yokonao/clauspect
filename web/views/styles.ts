@@ -435,6 +435,14 @@ tr.row:hover { background: var(--accent-soft); cursor: pointer; }
   padding-top: 16px;
   border-top: 1px solid var(--border);
 }
+/* A hook box carries its own border, so it acts as the divider between a run of
+   tools and surrounding prose — it just needs the matching breathing room. */
+.tool + .hook,
+.text + .hook,
+.hook + .tool,
+.hook + .text {
+  margin-top: 16px;
+}
 
 /* Tool rows */
 .tool {
@@ -519,6 +527,17 @@ tr.row:hover { background: var(--accent-soft); cursor: pointer; }
   overflow-wrap: anywhere;
   font-family: var(--mono);
   font-size: 0.76rem;
+}
+
+/* SessionStart hook: a session-boundary frame, set apart from the turn flow. */
+.session-hook {
+  margin: 22px 0;
+}
+.session-hook .hook {
+  margin: 0;
+  border-left-width: 3px;
+  border-left-color: var(--accent);
+  background: var(--surface-2);
 }
 
 .compact {
