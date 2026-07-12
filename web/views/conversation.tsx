@@ -34,6 +34,18 @@ function Blocks(props: { blocks: AssistantBlock[]; opts: RenderOptions }) {
 		<>
 			{props.blocks.map((block) => {
 				if (block.kind === "thinking") return null;
+				if (block.kind === "hook") {
+					const { hook } = block;
+					return (
+						<div class={`hook hook-${hook.status}`}>
+							<div class="hook-head">
+								<span class="hook-tag">⚙ {hook.event}</span>
+								<span class="hook-name">{hook.name}</span>
+							</div>
+							{hook.body && <div class="hook-body">{hook.body}</div>}
+						</div>
+					);
+				}
 				if (block.kind === "text") {
 					return (
 						<div

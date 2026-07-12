@@ -483,6 +483,44 @@ tr.row:hover { background: var(--accent-soft); cursor: pointer; }
   font-size: 0.88rem;
 }
 
+/* A hook firing surfaced inline in the turn. Self-labeled so it doesn't read as
+   assistant speech, regardless of which message box it lands in. */
+.hook {
+  margin: 6px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--faint);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 0.8rem;
+}
+.hook-error,
+.hook-blocked { border-left-color: var(--danger); }
+.hook-head {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  font-family: var(--mono);
+}
+.hook-tag {
+  flex: none;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.74rem;
+}
+.hook-name {
+  color: var(--faint);
+  font-size: 0.74rem;
+}
+.hook-body {
+  margin-top: 6px;
+  color: var(--muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--mono);
+  font-size: 0.76rem;
+}
+
 .compact {
   display: flex;
   align-items: center;

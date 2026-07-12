@@ -1,6 +1,7 @@
 import type {
 	AnyEntry,
 	AssistantEntry,
+	AttachmentEntry,
 	UserEntry,
 } from "../../domain/model/jsonl";
 
@@ -46,13 +47,65 @@ export interface ToolCall {
 	answer?: AskAnswer[];
 }
 
-// An assistant turn is a sequence of text, thinking, and tool_use blocks in the
-// order they were emitted. Keeping them in one ordered list preserves the
-// natural interleaving; which kinds to render is the renderer's call.
+// A hook firing surfaced from an attachment entry. `body` is the meaningful
+// text — for a success, the content the hook injected into the model's context;
+// for a failure, the error/stderr. The renderer decides how much to show.
+export interface HookBlock {
+	event: string;
+	name: string;
+	status: "success" | "error" | "blocked" | "async";
+	body?: string;
+}
+
+// A turn is a sequence of text, thinking, tool_use, and hook blocks in the order
+// they were emitted. Keeping them in one ordered list preserves the natural
+// interleaving; which kinds to render is the renderer's call. Hooks fire at
+// heterogeneous points (mid-turn PostToolUse, end-of-turn Stop, …); emission
+// order places each one correctly without per-event special-casing.
 export type AssistantBlock =
 	| { kind: "text"; text: string }
 	| { kind: "thinking"; text: string }
-	| { kind: "tool"; tool: ToolCall };
+	| { kind: "tool"; tool: ToolCall }
+	| { kind: "hook"; hook: HookBlock };
+
+// Normalize the hook-bearing attachment payloads into a HookBlock. Returns null
+// for non-hook attachments (files, diagnostics, skills, …) which the turn view
+// doesn't surface.
+function hookBlock(entry: AttachmentEntry): HookBlock | null {
+	const a = entry.attachment;
+	switch (a.type) {
+		case "hook_success":
+			return {
+				event: a.hookEvent,
+				name: a.hookName,
+				status: "success",
+				body: a.content.trim() || a.stdout.trim() || undefined,
+			};
+		case "hook_non_blocking_error":
+			return {
+				event: a.hookEvent,
+				name: a.hookName,
+				status: "error",
+				body: a.stderr.trim() || a.stdout.trim() || undefined,
+			};
+		case "hook_blocking_error":
+			return {
+				event: a.hookEvent,
+				name: a.hookName,
+				status: "blocked",
+				body: a.blockingError.blockingError?.trim() || undefined,
+			};
+		case "async_hook_response":
+			return {
+				event: a.hookEvent,
+				name: a.hookName,
+				status: "async",
+				body: a.stdout.trim() || undefined,
+			};
+		default:
+			return null;
+	}
+}
 
 function formatAssistantEntry(
 	entry: AssistantEntry,
@@ -173,6 +226,15 @@ export function buildTurnGroups(entries: AnyEntry[]): TurnGroup[] {
 			if (!current) current = { kind: "turn", userText: [], blocks: [] };
 			if (!current.assistantTs) current.assistantTs = entry.timestamp;
 			current.blocks.push(...blocks);
+		} else if (entry.type === "attachment") {
+			// Hooks never break a turn — they attach in emission order to whatever
+			// turn is open (a bare turn if a hook fires before any user/assistant
+			// activity, e.g. SessionStart). Only user prompts and compaction are
+			// turn boundaries.
+			const hook = hookBlock(entry);
+			if (!hook) continue;
+			if (!current) current = { kind: "turn", userText: [], blocks: [] };
+			current.blocks.push({ kind: "hook", hook });
 		} else if (
 			entry.type === "system" &&
 			entry.subtype === "compact_boundary"
