@@ -41,12 +41,10 @@ Now Read `/tmp/detail.png`. The detail page exercises the most view code —
 markdown, tool rows, hook attachments, the usage bar, subagent links. Delete the
 PNG afterwards; see Privacy.
 
-Swap the URL to shoot any other page:
+Swap the URL to shoot any other page. The routes are the object keys of
+`createRoutes` in `web/routes.tsx`. The `/agents/:agentId` ones need a session
+that actually spawned a subagent:
 
-| Route | Notes |
-|---|---|
-| `/` | session list |
-| `/search?q=<term>` | searches sessions *and* their subagent sidecars |
-| `/sessions/:id` | conversation + usage |
-| `/sessions/:id/raw` | pretty-printed JSONL |
-| `/sessions/:id/agents/:agentId[/raw]` | needs a session that spawned one — `find ~/.claude/projects -type d -name subagents` |
+```bash
+find ~/.claude/projects -type d -name subagents
+```
