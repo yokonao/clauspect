@@ -5,15 +5,9 @@ description: Run, launch, serve, smoke-test, or screenshot clauspect — the loc
 
 # Run clauspect
 
-Bun + Hono, reading Claude Code session logs and server-rendering them as HTML.
-**No client-side JavaScript**, so `curl` is the driver — nothing to install,
-nothing to maintain. Paths are relative to the repo root.
-
-```bash
-bun install
-bun run web --port 4111                     # your real ~/.claude/projects
-bun run web --port 4111 --root ./throwaway  # any other log dir
-```
+Bun + Hono. Reads Claude Code session JSONL and server-renders it as HTML.
+**No client-side JavaScript**, so a headless browser and `curl` are the whole
+driver — nothing to install, nothing to maintain.
 
 ## Privacy
 
@@ -23,36 +17,36 @@ HTML dump of a real session is private conversation content: **never attach one
 to a PR, issue, or commit.** For anything shareable, point `--root` at a
 throwaway log dir and capture that instead.
 
-## Drive it
+## Run it and look at it
+
+A view change is only verified when you have *looked* at the page. Status codes
+don't verify rendering — a page that lost its entire usage bar still returns
+`200`. Screenshot it and read the PNG.
 
 ```bash
-bun run web --port 4111 >/tmp/clauspect.log 2>&1 &
+bun install
+bun run web --port 4111 >/tmp/clauspect.log 2>&1 &   # --root <dir> to read other logs
 sleep 1.2
 ID=$(curl -s localhost:4111/ | grep -o '/sessions/[0-9a-f-]\{36\}' | head -1 | cut -d/ -f3)
 
-for p in "/" "/sessions/$ID" "/sessions/$ID/raw" "/search?q=bun"; do
-  curl -s -o /dev/null -w "%{http_code} $p\n" "localhost:4111$p"
-done
+CHROME=$(command -v google-chrome || command -v chromium || \
+  echo "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
+"$CHROME" --headless --disable-gpu --hide-scrollbars --window-size=1280,1600 \
+  --screenshot=/tmp/detail.png "http://localhost:4111/sessions/$ID"
 
 pkill -f web/index.tsx   # backgrounded: killing the wrapper leaves the server
 ```
 
-All four print `200`. Drop `-o /dev/null` to grep the HTML instead of the status.
+Now Read `/tmp/detail.png`. The detail page exercises the most view code —
+markdown, tool rows, hook attachments, the usage bar, subagent links. Delete the
+PNG afterwards; see Privacy.
 
-`/sessions/:id/agents/:agentId` needs a session that has a subagent — find one
-with `find ~/.claude/projects -type d -name subagents`.
+Swap the URL to shoot any other page:
 
-## Screenshot
-
-With the server running:
-
-```bash
-CHROME=$(command -v google-chrome || command -v chromium || \
-  echo "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
-
-"$CHROME" --headless --disable-gpu --hide-scrollbars --window-size=1280,1600 \
-  --screenshot=/tmp/detail.png "http://localhost:4111/sessions/$ID"
-```
-
-Read the PNG — the detail page exercises the most view code (markdown, tool
-rows, hook attachments, usage bar, subagent links). Delete it after; see Privacy.
+| Route | Notes |
+|---|---|
+| `/` | session list |
+| `/search?q=<term>` | searches sessions *and* their subagent sidecars |
+| `/sessions/:id` | conversation + usage |
+| `/sessions/:id/raw` | pretty-printed JSONL |
+| `/sessions/:id/agents/:agentId[/raw]` | needs a session that spawned one — `find ~/.claude/projects -type d -name subagents` |
