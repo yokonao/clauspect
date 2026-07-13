@@ -5,31 +5,25 @@ description: Run, launch, serve, smoke-test, or screenshot clauspect — the loc
 
 # Run clauspect
 
-Bun + Hono app that reads Claude Code session logs and server-renders them as
-HTML. **No client-side JavaScript**, so `curl` is the driver — there is no
-harness to install and none to maintain.
-
-Paths are relative to the repo root.
+Bun + Hono, reading Claude Code session logs and server-rendering them as HTML.
+**No client-side JavaScript**, so `curl` is the driver — nothing to install,
+nothing to maintain. Paths are relative to the repo root.
 
 ```bash
 bun install
-bun run web --port 4111          # your real ~/.claude/projects
-bun run web --port 4111 --root ./fixtures/projects   # any other log dir
+bun run web --port 4111                     # your real ~/.claude/projects
+bun run web --port 4111 --root ./throwaway  # any other log dir
 ```
-
-`--port` is worth passing: the default is `0`, i.e. a **random** port.
 
 ## Privacy
 
 The pages render your own Claude Code history — prompts, source, paths, secrets
-you once pasted. Reading it locally is the point of the app. But screenshots and
-HTML dumps of a real session are private conversation content: **never attach
-them to a PR, issue, or commit.** For anything shareable, run with `--root`
-pointing at a throwaway log dir and capture that instead.
+you once pasted. Reading it locally is the point of the app. But a screenshot or
+HTML dump of a real session is private conversation content: **never attach one
+to a PR, issue, or commit.** For anything shareable, point `--root` at a
+throwaway log dir and capture that instead.
 
 ## Drive it
-
-Start the server, then walk the routes — this is the whole harness:
 
 ```bash
 bun run web --port 4111 >/tmp/clauspect.log 2>&1 &
@@ -40,13 +34,13 @@ for p in "/" "/sessions/$ID" "/sessions/$ID/raw" "/search?q=bun"; do
   curl -s -o /dev/null -w "%{http_code} $p\n" "localhost:4111$p"
 done
 
-pkill -f web/index.tsx
+pkill -f web/index.tsx   # backgrounded: killing the wrapper leaves the server
 ```
 
 All four print `200`. Drop `-o /dev/null` to grep the HTML instead of the status.
 
-Subagent routes (`/sessions/:id/agents/:agentId`) need a session that has one:
-`find ~/.claude/projects -type d -name subagents`.
+`/sessions/:id/agents/:agentId` needs a session that has a subagent — find one
+with `find ~/.claude/projects -type d -name subagents`.
 
 ## Screenshot
 
@@ -60,50 +54,19 @@ CHROME=$(command -v google-chrome || command -v chromium || \
   --screenshot=/tmp/detail.png "http://localhost:4111/sessions/$ID"
 ```
 
-Open the PNG with the Read tool — the detail page exercises the most view code
-(markdown, tool rows, hook attachments, usage bar, subagent links). Delete it
-afterwards; see Privacy.
-
-## Test
-
-```bash
-bun test          # 28 tests, ~50ms
-bun run typecheck
-bun run check     # biome lint + format, writes fixes
-```
-
-Most changes are to pure functions in `domain/` or `web/views/` and need no
-server:
-
-```bash
-bun -e 'import {parseEntries} from "./domain/model/jsonl";
-console.log(parseEntries(`{"type":"ai-title","aiTitle":"hi","sessionId":"x"}`).entries)'
-```
+Read the PNG — the detail page exercises the most view code (markdown, tool
+rows, hook attachments, usage bar, subagent links). Delete it after; see Privacy.
 
 ## Gotchas
 
-- **The default port is random** (`DEFAULT_PORT = 0`). Nothing listens on 3000.
-  To capture the real port, parse stdout: `listening on http://localhost:(\d+)`.
+Silent failures: no error, no log, and nothing obvious to grep for.
 
-- **Session files must be named `<uuid>.jsonl` or they are silently invisible.**
-  `SessionStore` filters on a strict `UUID_REGEX` — a file named `session.jsonl`
-  yields an empty list page with no error and no warning. Same in URLs: a
-  non-UUID id 404s before any file is read.
+- **The default port is random** (`DEFAULT_PORT = 0`) — nothing ever listens on
+  3000. To capture the real one, parse `listening on http://localhost:(\d+)`.
 
-- **Search does not index subagent transcripts.** `runSearch` only scans each
-  `session.jsonl`; the `<sessionId>/subagents/agent-*.jsonl` sidecars are never
-  read. Text that exists *only* in a subagent is unfindable from `/search`.
+- **Session files not named `<uuid>.jsonl` are invisible.** `SessionStore`
+  filters on a strict `UUID_REGEX`, so a stray name yields an empty list page
+  with no warning. Bites when hand-writing a `--root` fixture.
 
-- **Thinking blocks are parsed but never rendered** in the conversation view
-  (the raw view shows them). Current behavior, not a bug you introduced.
-
-- **Usage totals span the session *and* its subagents** — real token spend lives
-  in the sidecars, so `/sessions/:id` aggregates both.
-
-## Troubleshooting
-
-| Symptom | Fix |
-|---|---|
-| Port stuck, or a tool call hangs forever | `bun run web` was backgrounded and only the wrapper died. `pkill -f web/index.tsx`. |
-| List page renders but is empty | Wrong `--root`, or the file isn't named `<uuid>.jsonl`. |
-| Server exits immediately | TypeScript error in a view; `bun run typecheck` names it. |
+- **`/search` never reads subagent sidecars.** `runSearch` scans only each
+  `session.jsonl`, so text that exists *only* inside a subagent is unfindable.
