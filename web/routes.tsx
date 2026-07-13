@@ -1,4 +1,4 @@
-import { scanEntries } from "../domain/search";
+import { type SearchHit, scanEntries } from "../domain/search";
 import { aggregateUsage } from "../domain/usage";
 import {
 	consoleLogger,
@@ -47,9 +47,12 @@ function agentMap(agents: SubagentMeta[]): Map<string, string> {
 
 const MAX_HITS_PER_SESSION = 5;
 
-// Parse every session and scan it for `query`. listSessions is newest-first and
-// Promise.all preserves order, so results stay newest-first. Sessions that fail
-// to parse are skipped rather than aborting the whole search.
+// Scan a session *and* its subagent sidecars — a subagent's transcript is part
+// of the session's history, so text that only ever appeared inside one still has
+// to be findable. Hits carry the agentId they came from so the view can link to
+// the right page. listSessions is newest-first and Promise.all preserves order,
+// so results stay newest-first. Files that fail to parse are skipped rather than
+// aborting the whole search.
 async function runSearch(
 	store: SessionStore,
 	query: string,
@@ -58,17 +61,30 @@ async function runSearch(
 	const sessions = await store.listSessions();
 	const results = await Promise.all(
 		sessions.map(async (session): Promise<SessionSearchResult | null> => {
-			let entries: Awaited<ReturnType<typeof store.parseSession>>["entries"];
-			try {
-				entries = (await store.parseSession(session.jsonl)).entries;
-			} catch {
-				return null;
+			const agents = await store.listSubagents(session);
+			const sources = [
+				{ jsonl: session.jsonl, agentId: undefined as string | undefined },
+				...agents.map((a) => ({ jsonl: a.jsonl, agentId: a.agentId })),
+			];
+
+			const hits: SearchHit[] = [];
+			let totalHits = 0;
+
+			for (const source of sources) {
+				let entries: Awaited<ReturnType<typeof store.parseSession>>["entries"];
+				try {
+					entries = (await store.parseSession(source.jsonl)).entries;
+				} catch {
+					continue;
+				}
+				const scanned = scanEntries(entries, needle, MAX_HITS_PER_SESSION);
+				totalHits += scanned.totalHits;
+				for (const hit of scanned.hits) {
+					if (hits.length >= MAX_HITS_PER_SESSION) break;
+					hits.push({ ...hit, agentId: source.agentId });
+				}
 			}
-			const { hits, totalHits } = scanEntries(
-				entries,
-				needle,
-				MAX_HITS_PER_SESSION,
-			);
+
 			return totalHits > 0 ? { session, hits, totalHits } : null;
 		}),
 	);

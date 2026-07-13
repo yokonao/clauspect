@@ -24,12 +24,16 @@ const KIND_LABEL: Record<HitKind, string> = {
 
 function Hit(props: { sessionId: string; hit: SearchHit }) {
 	const { sessionId, hit } = props;
-	const href = hit.uuid
-		? `/sessions/${sessionId}/raw#entry-${hit.uuid}`
+	const base = hit.agentId
+		? `/sessions/${sessionId}/agents/${hit.agentId}`
 		: `/sessions/${sessionId}`;
+	const href = hit.uuid ? `${base}/raw#entry-${hit.uuid}` : base;
 	return (
 		<a class="hit" href={href}>
-			<span class="hit-kind">{KIND_LABEL[hit.kind]}</span>
+			<span class="hit-kind">
+				{KIND_LABEL[hit.kind]}
+				{hit.agentId ? " · agent" : ""}
+			</span>
 			<span class="hit-snippet">
 				{hit.before}
 				<mark>{hit.match}</mark>

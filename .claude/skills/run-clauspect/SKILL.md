@@ -56,17 +56,3 @@ CHROME=$(command -v google-chrome || command -v chromium || \
 
 Read the PNG — the detail page exercises the most view code (markdown, tool
 rows, hook attachments, usage bar, subagent links). Delete it after; see Privacy.
-
-## Gotchas
-
-Silent failures: no error, no log, and nothing obvious to grep for.
-
-- **The default port is random** (`DEFAULT_PORT = 0`) — nothing ever listens on
-  3000. To capture the real one, parse `listening on http://localhost:(\d+)`.
-
-- **Session files not named `<uuid>.jsonl` are invisible.** `SessionStore`
-  filters on a strict `UUID_REGEX`, so a stray name yields an empty list page
-  with no warning. Bites when hand-writing a `--root` fixture.
-
-- **`/search` never reads subagent sidecars.** `runSearch` scans only each
-  `session.jsonl`, so text that exists *only* inside a subagent is unfindable.

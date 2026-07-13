@@ -110,7 +110,12 @@ export class SessionStore {
 						entries.map(async (entry) => {
 							if (!entry.endsWith(".jsonl")) return;
 							const sessionId = entry.slice(0, -6);
-							if (!UUID_REGEX.test(sessionId)) return;
+							if (!UUID_REGEX.test(sessionId)) {
+								this.logger.warn("skipping jsonl with a non-uuid name", {
+									path: join(projectPath, entry),
+								});
+								return;
+							}
 							const session = await this.loadSession(
 								projectEntry.name,
 								sessionId,

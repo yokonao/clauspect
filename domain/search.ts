@@ -11,6 +11,9 @@ export interface SearchHit {
 	before: string;
 	match: string;
 	after: string;
+	// Set when the hit came from a subagent sidecar rather than the parent
+	// session, so the view can link to the subagent's own page.
+	agentId?: string;
 }
 
 interface Segment {
