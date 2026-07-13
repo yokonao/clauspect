@@ -23,6 +23,13 @@ bun run web
 Then open the printed `http://localhost:<port>` URL to browse and read sessions
 in the browser.
 
+Options:
+
+```
+bun run web --port 4111        # fixed port (default: a random free one)
+bun run web --root ./sessions  # read logs from elsewhere (default: ~/.claude/projects)
+```
+
 ## Development
 
 ```

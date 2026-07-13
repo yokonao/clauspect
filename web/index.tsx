@@ -1,13 +1,16 @@
 #!/usr/bin/env bun
 
 import { parseArgs } from "node:util";
-import { routes } from "./routes";
+import { createRoutes } from "./routes";
 
 const DEFAULT_PORT = 0;
 
 const { values } = parseArgs({
 	args: process.argv.slice(2),
-	options: { port: { type: "string", short: "p" } },
+	options: {
+		port: { type: "string", short: "p" },
+		root: { type: "string", short: "r" },
+	},
 	allowPositionals: false,
 });
 
@@ -17,7 +20,8 @@ if (Number.isNaN(port) || port < 0 || port > 65535) {
 	process.exit(1);
 }
 
-const server = Bun.serve({ port, routes });
+const server = Bun.serve({ port, routes: createRoutes({ root: values.root }) });
+if (values.root) console.log(`reading sessions from ${values.root}`);
 
 console.log(`clauspect server listening on http://localhost:${server.port}`);
 console.log("Press Ctrl+C to stop.");

@@ -14,8 +14,6 @@ import { renderPage, Shell } from "./views/shell";
 import { subagentPage } from "./views/subagent";
 import { buildTurnGroups } from "./views/turn";
 
-const store = new SessionStore({ logger: consoleLogger });
-
 type BunRequest = Request & { params: Record<string, string> };
 
 const html = { headers: { "content-type": "text/html; charset=utf-8" } };
@@ -34,7 +32,10 @@ function notFound(message: string): Response {
 	return new Response(body, { ...html, status: 404 });
 }
 
-function findSession(id: string | undefined): Promise<Session | undefined> {
+function findSession(
+	store: SessionStore,
+	id: string | undefined,
+): Promise<Session | undefined> {
 	return id ? store.getSession(id) : Promise.resolve(undefined);
 }
 
@@ -49,7 +50,10 @@ const MAX_HITS_PER_SESSION = 5;
 // Parse every session and scan it for `query`. listSessions is newest-first and
 // Promise.all preserves order, so results stay newest-first. Sessions that fail
 // to parse are skipped rather than aborting the whole search.
-async function runSearch(query: string): Promise<SessionSearchResult[]> {
+async function runSearch(
+	store: SessionStore,
+	query: string,
+): Promise<SessionSearchResult[]> {
 	const needle = query.toLowerCase();
 	const sessions = await store.listSessions();
 	const results = await Promise.all(
@@ -71,100 +75,107 @@ async function runSearch(query: string): Promise<SessionSearchResult[]> {
 	return results.filter((r): r is SessionSearchResult => r !== null);
 }
 
-export const routes = {
-	"/": async (req: Request) => {
-		const project = new URL(req.url).searchParams.get("project");
-		const sessions = await store.listSessions();
-		const projects = [...new Set(sessions.map((s) => s.directory))].sort();
-		return new Response(listPage({ sessions, projects }, project), html);
-	},
+// `root` defaults to $HOME/.claude/projects inside SessionStore. Passing it lets
+// the app be pointed at any log directory — a fixture, a copy, someone else's
+// export — without touching $HOME.
+export function createRoutes(opts: { root?: string } = {}) {
+	const store = new SessionStore({ root: opts.root, logger: consoleLogger });
 
-	"/search": async (req: Request) => {
-		const q = (new URL(req.url).searchParams.get("q") ?? "").trim();
-		const results = q ? await runSearch(q) : [];
-		const totalHits = results.reduce((n, r) => n + r.totalHits, 0);
-		return new Response(searchPage({ query: q, results, totalHits }), html);
-	},
+	return {
+		"/": async (req: Request) => {
+			const project = new URL(req.url).searchParams.get("project");
+			const sessions = await store.listSessions();
+			const projects = [...new Set(sessions.map((s) => s.directory))].sort();
+			return new Response(listPage({ sessions, projects }, project), html);
+		},
 
-	"/sessions/:id": async (req: Request) => {
-		const session = await findSession((req as BunRequest).params.id);
-		if (!session) return notFound("Session not found");
-		const agents = await store.listSubagents(session);
-		const parsed = await store.parseSession(session.jsonl);
-		const groups = buildTurnGroups(parsed.entries);
-		const opts = {
-			sessionId: session.id,
-			agentByToolUseId: agentMap(agents),
-			rawBasePath: `/sessions/${session.id}/raw`,
-		};
+		"/search": async (req: Request) => {
+			const q = (new URL(req.url).searchParams.get("q") ?? "").trim();
+			const results = q ? await runSearch(store, q) : [];
+			const totalHits = results.reduce((n, r) => n + r.totalHits, 0);
+			return new Response(searchPage({ query: q, results, totalHits }), html);
+		},
 
-		// Usage totals span the session plus its subagents (real spend lives in
-		// the sidecar agent files), so aggregate over all of them together.
-		const entries = [...parsed.entries];
-		for (const agent of agents) {
-			const agentParsed = await store.parseSession(agent.jsonl);
-			entries.push(...agentParsed.entries);
-		}
-		const usage = aggregateUsage(entries);
+		"/sessions/:id": async (req: Request) => {
+			const session = await findSession(store, (req as BunRequest).params.id);
+			if (!session) return notFound("Session not found");
+			const agents = await store.listSubagents(session);
+			const parsed = await store.parseSession(session.jsonl);
+			const groups = buildTurnGroups(parsed.entries);
+			const opts = {
+				sessionId: session.id,
+				agentByToolUseId: agentMap(agents),
+				rawBasePath: `/sessions/${session.id}/raw`,
+			};
 
-		return new Response(
-			detailPage({ session, agents, groups, opts, usage }),
-			html,
-		);
-	},
+			// Usage totals span the session plus its subagents (real spend lives in
+			// the sidecar agent files), so aggregate over all of them together.
+			const entries = [...parsed.entries];
+			for (const agent of agents) {
+				const agentParsed = await store.parseSession(agent.jsonl);
+				entries.push(...agentParsed.entries);
+			}
+			const usage = aggregateUsage(entries);
 
-	"/sessions/:id/agents/:agentId": async (req: Request) => {
-		const p = (req as BunRequest).params;
-		const session = await findSession(p.id);
-		if (!session) return notFound("Subagent not found");
-		const agents = await store.listSubagents(session);
-		const agent = agents.find((a) => a.agentId === p.agentId);
-		if (!agent) return notFound("Subagent not found");
-		const parsed = await store.parseSession(agent.jsonl);
-		const groups = buildTurnGroups(parsed.entries);
-		const opts = {
-			sessionId: session.id,
-			agentByToolUseId: agentMap(agents),
-			rawBasePath: `/sessions/${session.id}/agents/${p.agentId}/raw`,
-		};
-		return new Response(
-			subagentPage({
-				session,
-				agent,
-				groups,
-				opts,
-				usage: aggregateUsage(parsed.entries),
-			}),
-			html,
-		);
-	},
+			return new Response(
+				detailPage({ session, agents, groups, opts, usage }),
+				html,
+			);
+		},
 
-	"/sessions/:id/raw": async (req: Request) => {
-		const session = await findSession((req as BunRequest).params.id);
-		if (!session) return notFound("Session not found");
-		const entries = await store.readRawEntries(session.jsonl);
-		return new Response(
-			rawPage({ session, backPath: `/sessions/${session.id}`, entries }),
-			html,
-		);
-	},
+		"/sessions/:id/agents/:agentId": async (req: Request) => {
+			const p = (req as BunRequest).params;
+			const session = await findSession(store, p.id);
+			if (!session) return notFound("Subagent not found");
+			const agents = await store.listSubagents(session);
+			const agent = agents.find((a) => a.agentId === p.agentId);
+			if (!agent) return notFound("Subagent not found");
+			const parsed = await store.parseSession(agent.jsonl);
+			const groups = buildTurnGroups(parsed.entries);
+			const opts = {
+				sessionId: session.id,
+				agentByToolUseId: agentMap(agents),
+				rawBasePath: `/sessions/${session.id}/agents/${p.agentId}/raw`,
+			};
+			return new Response(
+				subagentPage({
+					session,
+					agent,
+					groups,
+					opts,
+					usage: aggregateUsage(parsed.entries),
+				}),
+				html,
+			);
+		},
 
-	"/sessions/:id/agents/:agentId/raw": async (req: Request) => {
-		const p = (req as BunRequest).params;
-		const session = await findSession(p.id);
-		if (!session) return notFound("Subagent not found");
-		const agents = await store.listSubagents(session);
-		const agent = agents.find((a) => a.agentId === p.agentId);
-		if (!agent) return notFound("Subagent not found");
-		const entries = await store.readRawEntries(agent.jsonl);
-		return new Response(
-			rawPage({
-				session,
-				agent,
-				backPath: `/sessions/${session.id}/agents/${p.agentId}`,
-				entries,
-			}),
-			html,
-		);
-	},
-};
+		"/sessions/:id/raw": async (req: Request) => {
+			const session = await findSession(store, (req as BunRequest).params.id);
+			if (!session) return notFound("Session not found");
+			const entries = await store.readRawEntries(session.jsonl);
+			return new Response(
+				rawPage({ session, backPath: `/sessions/${session.id}`, entries }),
+				html,
+			);
+		},
+
+		"/sessions/:id/agents/:agentId/raw": async (req: Request) => {
+			const p = (req as BunRequest).params;
+			const session = await findSession(store, p.id);
+			if (!session) return notFound("Subagent not found");
+			const agents = await store.listSubagents(session);
+			const agent = agents.find((a) => a.agentId === p.agentId);
+			if (!agent) return notFound("Subagent not found");
+			const entries = await store.readRawEntries(agent.jsonl);
+			return new Response(
+				rawPage({
+					session,
+					agent,
+					backPath: `/sessions/${session.id}/agents/${p.agentId}`,
+					entries,
+				}),
+				html,
+			);
+		},
+	};
+}

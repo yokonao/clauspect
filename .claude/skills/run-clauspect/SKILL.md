@@ -5,90 +5,52 @@ description: Run, launch, serve, smoke-test, or screenshot clauspect — the loc
 
 # Run clauspect
 
-Bun + Hono web app that reads `$HOME/.claude/projects` and server-renders the
-session logs as HTML.
-
-**Zero client-side JavaScript.** Every page is server-rendered, so `curl` is the
-driver — no browser automation, no fixture, no custom harness. Whatever is
-already in your `~/.claude/projects` is the corpus; a normal history covers
-thinking blocks, tool calls, hooks, images, compact boundaries, api errors and
-subagents without you having to synthesize anything.
+Bun + Hono app that reads Claude Code session logs and server-renders them as
+HTML. **No client-side JavaScript**, so `curl` is the driver — there is no
+harness to install and none to maintain.
 
 Paths are relative to the repo root.
 
-## Privacy — read this before sharing any output
-
-Every page renders **your own Claude Code history**: prompts, source code, file
-paths, and anything you ever pasted into a session. Viewing it locally is the
-whole point of the app and is fine. What is *not* fine:
-
-- Do not attach screenshots, HTML dumps, or `curl` output from a real session to
-  a PR, issue, commit, or bug report. They are private conversation content, not
-  test output.
-- Do not paste a real session's rendered text into a public channel to "show the
-  bug."
-
-If you need a shareable repro, point the server at a scratch `HOME` holding a
-hand-written JSONL (see the `$HOME` gotcha below) and screenshot *that*:
-
-```bash
-FAKE=$(mktemp -d)
-mkdir -p "$FAKE/.claude/projects/demo"
-# session files MUST be named <uuid>.jsonl or they're invisible — see Gotchas
-cat > "$FAKE/.claude/projects/demo/00000000-0000-4000-8000-000000000001.jsonl" <<'JSONL'
-{"type":"user","parentUuid":null,"isSidechain":false,"uuid":"a","timestamp":"2026-01-01T00:00:00Z","cwd":"/demo","message":{"role":"user","content":"hello"}}
-JSONL
-HOME="$FAKE" bun run web --port 4111
-```
-
-## Setup
-
 ```bash
 bun install
+bun run web --port 4111          # your real ~/.claude/projects
+bun run web --port 4111 --root ./fixtures/projects   # any other log dir
 ```
 
-## Run
+`--port` is worth passing: the default is `0`, i.e. a **random** port.
 
-```bash
-bun run web --port 4111
-```
+## Privacy
 
-Open `http://localhost:4111`. Ctrl-C to stop.
+The pages render your own Claude Code history — prompts, source, paths, secrets
+you once pasted. Reading it locally is the point of the app. But screenshots and
+HTML dumps of a real session are private conversation content: **never attach
+them to a PR, issue, or commit.** For anything shareable, run with `--root`
+pointing at a throwaway log dir and capture that instead.
 
-Pass `--port` explicitly. The default is `0` (`DEFAULT_PORT` in
-`web/index.tsx`), which binds a **random** port — nothing ever listens on 3000.
+## Drive it
 
-## Drive it (agent path)
-
-Start the server, then walk the routes. This is the whole harness:
+Start the server, then walk the routes — this is the whole harness:
 
 ```bash
 bun run web --port 4111 >/tmp/clauspect.log 2>&1 &
 sleep 1.2
-
 ID=$(curl -s localhost:4111/ | grep -o '/sessions/[0-9a-f-]\{36\}' | head -1 | cut -d/ -f3)
 
-curl -s -o /dev/null -w 'list   %{http_code}\n' localhost:4111/
-curl -s -o /dev/null -w 'detail %{http_code}\n' localhost:4111/sessions/$ID
-curl -s -o /dev/null -w 'raw    %{http_code}\n' localhost:4111/sessions/$ID/raw
-curl -s -o /dev/null -w 'search %{http_code}\n' "localhost:4111/search?q=bun"
+for p in "/" "/sessions/$ID" "/sessions/$ID/raw" "/search?q=bun"; do
+  curl -s -o /dev/null -w "%{http_code} $p\n" "localhost:4111$p"
+done
 
 pkill -f web/index.tsx
 ```
 
-All four print `200`. To inspect rendering rather than status, drop the
-`-o /dev/null` and grep the HTML.
+All four print `200`. Drop `-o /dev/null` to grep the HTML instead of the status.
 
-A session with subagents (needed for `/sessions/:id/agents/:agentId`):
-
-```bash
-find ~/.claude/projects -type d -name subagents
-```
+Subagent routes (`/sessions/:id/agents/:agentId`) need a session that has one:
+`find ~/.claude/projects -type d -name subagents`.
 
 ## Screenshot
 
-Headless Chrome, with the server already running. Pick whichever binary exists
-on this machine:
+With the server running:
 
 ```bash
 CHROME=$(command -v google-chrome || command -v chromium || \
@@ -98,23 +60,20 @@ CHROME=$(command -v google-chrome || command -v chromium || \
   --screenshot=/tmp/detail.png "http://localhost:4111/sessions/$ID"
 ```
 
-Then actually open the PNG with the Read tool. The detail page exercises the
-most view code: markdown, tool rows, hook attachments, the usage bar, and the
-subagent link.
-
-The PNG is a picture of a real conversation — see Privacy above. Delete it when
-done (`rm /tmp/detail.png`) rather than leaving it in a shared `/tmp`.
+Open the PNG with the Read tool — the detail page exercises the most view code
+(markdown, tool rows, hook attachments, usage bar, subagent links). Delete it
+afterwards; see Privacy.
 
 ## Test
 
 ```bash
-bun test          # 27 tests, domain + views, ~30ms
-bun run typecheck # tsc --noEmit
+bun test          # 28 tests, ~50ms
+bun run typecheck
 bun run check     # biome lint + format, writes fixes
 ```
 
-Most changes here are to pure functions in `domain/` or `web/views/` and need no
-server at all:
+Most changes are to pure functions in `domain/` or `web/views/` and need no
+server:
 
 ```bash
 bun -e 'import {parseEntries} from "./domain/model/jsonl";
@@ -123,32 +82,20 @@ console.log(parseEntries(`{"type":"ai-title","aiTitle":"hi","sessionId":"x"}`).e
 
 ## Gotchas
 
-- **The default port is random.** See Run above. Anything that needs the real
-  port must parse it off stdout: `listening on http://localhost:(\d+)`.
-
-- **`$HOME` is the only way to point the app at different logs.** `SessionStore`
-  takes a `root` option, but `web/routes.tsx` constructs it as
-  `new SessionStore({ logger: consoleLogger })` — no `root`. So the directory is
-  always `$HOME/.claude/projects`. To render a synthetic corpus, spawn the server
-  with `HOME=/some/dir`; there is no flag and no config.
+- **The default port is random** (`DEFAULT_PORT = 0`). Nothing listens on 3000.
+  To capture the real port, parse stdout: `listening on http://localhost:(\d+)`.
 
 - **Session files must be named `<uuid>.jsonl` or they are silently invisible.**
-  `SessionStore` filters on a strict `UUID_REGEX`. A file named `session.jsonl`
+  `SessionStore` filters on a strict `UUID_REGEX` — a file named `session.jsonl`
   yields an empty list page with no error and no warning. Same in URLs: a
-  non-UUID id 404s before any file is touched.
+  non-UUID id 404s before any file is read.
 
-- **Search does not index subagent transcripts.** `runSearch` in
-  `web/routes.tsx` only parses each `session.jsonl`; the
-  `<sessionId>/subagents/agent-*.jsonl` sidecars are never scanned. Text that
-  exists *only* inside a subagent is unfindable from `/search`.
+- **Search does not index subagent transcripts.** `runSearch` only scans each
+  `session.jsonl`; the `<sessionId>/subagents/agent-*.jsonl` sidecars are never
+  read. Text that exists *only* in a subagent is unfindable from `/search`.
 
-- **Thinking blocks are parsed but never rendered.** The schema accepts them and
-  the raw view shows them, but the conversation view drops them. Current
-  behavior, not a bug you introduced.
-
-- **Malformed lines never crash a page.** `parseEntries` turns a bad line into a
-  synthetic `__error__` entry that rides along with the good ones; the raw view
-  keeps it verbatim as `unparseable`. Covered by `domain/model/jsonl.test.ts`.
+- **Thinking blocks are parsed but never rendered** in the conversation view
+  (the raw view shows them). Current behavior, not a bug you introduced.
 
 - **Usage totals span the session *and* its subagents** — real token spend lives
   in the sidecars, so `/sessions/:id` aggregates both.
@@ -157,6 +104,6 @@ console.log(parseEntries(`{"type":"ai-title","aiTitle":"hi","sessionId":"x"}`).e
 
 | Symptom | Fix |
 |---|---|
-| A port is stuck, or a tool call hangs forever | `bun run web` was backgrounded and only the wrapper got killed. `pkill -f web/index.tsx`. |
-| List page renders but is empty | `$HOME` isn't where you think, or the file isn't named `<uuid>.jsonl`. Check `ls $HOME/.claude/projects/*/`. |
-| Server exits immediately | A TypeScript error in a view. `bun run typecheck` names it; the server logs it to stderr. |
+| Port stuck, or a tool call hangs forever | `bun run web` was backgrounded and only the wrapper died. `pkill -f web/index.tsx`. |
+| List page renders but is empty | Wrong `--root`, or the file isn't named `<uuid>.jsonl`. |
+| Server exits immediately | TypeScript error in a view; `bun run typecheck` names it. |
