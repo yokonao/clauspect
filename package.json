@@ -4,11 +4,11 @@
 	"type": "module",
 	"private": true,
 	"devDependencies": {
-		"@biomejs/biome": "^2.4.13",
-		"@types/bun": "latest"
+		"@biomejs/biome": "^2.5.12",
+		"@types/bun": "^1.4.1"
 	},
 	"peerDependencies": {
-		"typescript": "^5"
+		"typescript": "^7.0.2"
 	},
 	"scripts": {
 		"web": "bun run web/index.tsx",
@@ -18,7 +18,7 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"hono": "^4.12.27",
-		"zod": "^4.3.6"
+		"hono": "^4.13.7",
+		"zod": "^4.5.4"
 	}
 }
