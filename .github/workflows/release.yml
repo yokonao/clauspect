@@ -1,0 +1,28 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: build binaries
+        run: |
+          mkdir -p dist
+          for target in bun-darwin-arm64 bun-darwin-x64 bun-linux-arm64 bun-linux-x64 bun-windows-x64; do
+            ext=""
+            [[ "$target" == *windows* ]] && ext=".exe"
+            bun build ./web/index.tsx --compile --target="$target" --outfile "dist/clauspect-${target#bun-}${ext}"
+          done
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
