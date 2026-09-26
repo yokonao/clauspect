@@ -14,7 +14,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.4.0
+      - uses: actions/checkout@v7.0.1
       - uses: oven-sh/setup-bun@v2.2.0
       - run: bun install --frozen-lockfile
       - name: build binaries
@@ -25,6 +25,6 @@ jobs:
             [[ "$target" == *windows* ]] && ext=".exe"
             bun build ./web/index.tsx --compile --target="$target" --outfile "dist/clauspect-${target#bun-}${ext}"
           done
-      - uses: softprops/action-gh-release@v2.6.2
+      - uses: softprops/action-gh-release@v3.0.3
         with:
           files: dist/*
