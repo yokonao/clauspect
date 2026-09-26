@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+import { lstatSync, unlinkSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { createRoutes } from "./routes";
 
@@ -26,6 +27,8 @@ if (Number.isNaN(port) || port < 0 || port > 65535) {
 	process.exit(1);
 }
 
+if (values.unix && (await isStaleSocket(values.unix))) unlinkSync(values.unix);
+
 const routes = createRoutes({ root: values.root });
 const server = values.unix
 	? Bun.serve({ unix: values.unix, routes })
@@ -38,3 +41,14 @@ console.log(
 		: `clauspect server listening on http://localhost:${server.port}`,
 );
 console.log("Press Ctrl+C to stop.");
+
+async function isStaleSocket(path: string): Promise<boolean> {
+	if (!lstatSync(path, { throwIfNoEntry: false })?.isSocket()) return false;
+	try {
+		const socket = await Bun.connect({ unix: path, socket: { data() {} } });
+		socket.end();
+		return false;
+	} catch {
+		return true;
+	}
+}
