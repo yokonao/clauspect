@@ -8,32 +8,7 @@ viewer.
 
 ## Install
 
-Prebuilt binaries for macOS, Linux, and Windows are published on
-[Releases](https://github.com/yokonao/clauspect/releases).
-
-Via curl:
-
-```
-curl -fsSL https://github.com/yokonao/clauspect/releases/latest/download/clauspect-darwin-arm64 -o clauspect
-chmod +x clauspect
-sudo mv clauspect /usr/local/bin/
-```
-
-Swap `clauspect-darwin-arm64` for your platform: `clauspect-darwin-x64`,
-`clauspect-linux-arm64`, `clauspect-linux-x64`, `clauspect-windows-x64.exe`.
-
-Via [mise](https://mise.jdx.dev):
-
-```
-mise use -g github:yokonao/clauspect
-```
-
-Or run from source with [Bun](https://bun.sh):
-
-```
-bun install
-bun run web
-```
+Download a binary from [GitHub Releases](https://github.com/yokonao/clauspect/releases), run `mise use -g github:yokonao/clauspect`, or run from source with `bun install && bun run web`. See [docs/install.md](docs/install.md) for the details and how to verify a release.
 
 ## Usage
 
