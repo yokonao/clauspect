@@ -49,6 +49,7 @@ Options:
 ```
 clauspect --port 4111        # fixed port (default: a random free one)
 clauspect --root ./sessions  # read logs from elsewhere (default: ~/.claude/projects)
+clauspect --unix /tmp/clauspect.sock  # listen on a Unix domain socket instead of TCP
 ```
 
 ## Development
