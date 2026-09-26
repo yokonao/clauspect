@@ -10,9 +10,15 @@ const { values } = parseArgs({
 	options: {
 		port: { type: "string", short: "p" },
 		root: { type: "string", short: "r" },
+		unix: { type: "string", short: "u" },
 	},
 	allowPositionals: false,
 });
+
+if (values.port && values.unix) {
+	console.error("--port and --unix cannot be used together");
+	process.exit(1);
+}
 
 const port = values.port ? parseInt(values.port, 10) : DEFAULT_PORT;
 if (Number.isNaN(port) || port < 0 || port > 65535) {
@@ -20,8 +26,15 @@ if (Number.isNaN(port) || port < 0 || port > 65535) {
 	process.exit(1);
 }
 
-const server = Bun.serve({ port, routes: createRoutes({ root: values.root }) });
+const routes = createRoutes({ root: values.root });
+const server = values.unix
+	? Bun.serve({ unix: values.unix, routes })
+	: Bun.serve({ port, routes });
 if (values.root) console.log(`reading sessions from ${values.root}`);
 
-console.log(`clauspect server listening on http://localhost:${server.port}`);
+console.log(
+	values.unix
+		? `clauspect server listening on unix:${values.unix}`
+		: `clauspect server listening on http://localhost:${server.port}`,
+);
 console.log("Press Ctrl+C to stop.");
